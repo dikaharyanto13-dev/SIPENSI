@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SIPENSI — Monitoring Pensiun Kota Ternate 2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 99px; }
+    select option { background: #1e293b; color: #f1f5f9; }
+    @keyframes shine {
+      0% { transform: translateX(-100%) rotate(45deg); }
+      100% { transform: translateX(100%) rotate(45deg); }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo, useEffect } = React;
+
+/* ─── SVG Icon Helper ─── */
+const Ic = ({ d, size=16, style={}, className='' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} className={className}>
+    {(Array.isArray(d)?d:[d]).map((p,i)=><path key={i} d={p}/>)}
+  </svg>
+);
+const I = {
+  users:    ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2","M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8","M23 21v-2a4 4 0 0 0-3-3.87","M16 3.13a4 4 0 0 1 0 7.75"]}/>,
+  search:   ({s,st,cl})=><Ic size={s} style={st} className={cl} d="M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0"/>,
+  moon:     ({s,st,cl})=><Ic size={s} style={st} className={cl} d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>,
+  sun:      ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M12 1v2","M12 21v2","M4.22 4.22l1.42 1.42","M18.36 18.36l1.42 1.42","M1 12h2","M21 12h2","M4.22 19.78l1.42-1.42","M18.36 5.64l1.42-1.42","M12 5a7 7 0 1 0 0 14A7 7 0 0 0 12 5z"]}/>,
+  dash:     ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M3 3h7v9H3z","M14 3h7v5h-7z","M14 12h7v9h-7z","M3 16h7v5H3z"]}/>,
+  chevL:    ({s,st,cl})=><Ic size={s} style={st} className={cl} d="M15 18l-6-6 6-6"/>,
+  menu:     ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M3 12h18","M3 6h18","M3 18h18"]}/>,
+  alert:    ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z","M12 9v4","M12 17h.01"]}/>,
+  clock:    ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z","M12 6v6l4 2"]}/>,
+  check2:   ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z","M9 12l2 2 4-4"]}/>,
+  shield:   ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z","M9 12l2 2 4-4"]}/>,
+  logout:   ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4","M16 17l5-5-5-5","M21 12H9"]}/>,
+  info:     ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z","M12 16v-4","M12 8h.01"]}/>,
+  clip:     ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2","M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2","M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2","M9 14l2 2 4-4"]}/>,
+  person:   ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2","M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"]}/>,
+  calendar: ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M3 4h18v18H3z","M16 2v4","M8 2v4","M3 10h18"]}/>,
+  xmark:    ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M18 6 6 18","M6 6l12 12"]}/>,
+  bar:      ({s,st,cl})=><Ic size={s} style={st} className={cl} d={["M18 20V10","M12 20V4","M6 20v-6"]}/>,
+};
+
+/* ─── CSV Parser & Loader ─── */
+// Simple CSV parser that handles quoted fields
+const parseCSVLine = (line) => {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+};
+
+const parseCSV = (text) => {
+  const lines = text.trim().split(/\r?\n/);
+  const headers = parseCSVLine(lines[0]);
+  return lines.slice(1).filter(line => line.trim()).map((line, idx) => {
+    const values = parseCSVLine(line);
+    const row = {};
+    headers.forEach((h, i) => {
+      let val = values[i] || '';
+      // Handle NIP - strip extra quotes and handle scientific notation
+      if (h === 'NIP') {
+        val = val.replace(/"/g, ''); // Remove all quotes
+        if (val.includes('E')) {
+          val = String(Math.round(parseFloat(val)));
+        }
+      }
+      // Handle TMT date format (M/D/YYYY to YYYY-MM-DD)
+      if (h === 'TMT' || h === 'TMT. PENSIUN') {
+        const parts = val.split('/');
+        if (parts.length === 3) {
+          val = `${parts[2].padStart(4, '20')}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+        }
+      }
+      row[h] = val;
+    });
+    // Map CSV headers to app fields
+    return {
+      id: idx + 1,
+      Nama: row['Nama'] || '',
+      NIP: row['NIP'] || row['No'] || '',
+      Pangkat: row['Pangkat'] || '',
+      Jabatan: row['Jabatan Terakhir'] || row['Jabatan'] || '',
+      TMT: row['TMT'] || row['TMT. PENSIUN'] || '',
+      Unit: row['Unit Kerja'] || row['Unit'] || '',
+      Operator: row['Operator'] || '',
+      StatusPensiun: row['Status Pensiun'] || row['Janis Pensiun'] || 'BUP'
+    };
+  });
+};
+
+const normalizeData = (rawData) => {
+  return rawData.map((row, idx) => ({
+    id: idx + 1,
+    Nama: row["Nama"] || row["nama"] || "",
+    NIP: row["NIP"] || row["nip"] || row["No"] || "",
+    Pangkat: row["Pangkat"] || row["pangkat"] || "",
+    Jabatan: row["Jabatan Terakhir"] || row["jabatan"] || row["Jabatan"] || "",
+    TMT: row["TMT. PENSIUN"] || row["TMT"] || "",
+    Unit: row["Unit Kerja"] || row["Unit"] || "",
+    Operator: row["Operator"] || "",
+    StatusPensiun: row["Janis Pensiun"] || row["Status Pensiun"] || "BUP"
+  }));
+};
+
+const loadData = async () => {
+  const urls = [
+    './data/datapensiun2026.xlsx',
+    './data/data_pensiun_2026.xlsx',
+    './data/datapensiun2026.csv',
+    './data/data_pensiun_2026.csv'
+  ];
+
+  for (const url of urls) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) continue;
+
+      let rawData;
+      if (url.endsWith(".xlsx")) {
+        const buffer = await response.arrayBuffer();
+        const workbook = XLSX.read(buffer, {type: "array"});
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        rawData = XLSX.utils.sheet_to_json(worksheet);
+        console.log("XLSX loaded from", url, ":", rawData.length, "records");
+      } else {
+        const text = await response.text();
+        rawData = parseCSV(text);
+        console.log("CSV loaded from", url, ":", rawData.length, "records");
+      }
+
+      const data = normalizeData(rawData);
+      return data.length > 0 ? data : null;
+    } catch (e) {
+      console.warn("Failed to load from", url, e);
+      continue;
+    }
+  }
+
+  console.warn("Could not load any data file");
+  return null;
+};
+
+/* --- Status Logic --- */
+const getStatusDetail = (pns) => {
+  const tmtDate = new Date(pns.TMT);
+  const today = new Date();
+  const diffMonths = Math.ceil((tmtDate - today) / (1000*60*60*24*30.44));
+  if (pns.Status === 'Done') return { urgency:'done', urgencyLabel:'Selesai', keterangan:'BERKAS RAMPUNG: Data telah divalidasi dan diusulkan ke BKN.' };
+  if (diffMonths <= 0) return { urgency:'expired', urgencyLabel:'Lewat TMT', keterangan:'PERINGATAN: TMT sudah terlewati. Segera koordinasi Bidang Pensiun.' };
+  if (diffMonths <= 3) return { urgency:'sangat-segera', urgencyLabel:'Sangat Segera', keterangan:'TINDAKAN CEPAT: Waktu < 3 Bulan. Kumpulkan Form DPCP hari ini.' };
+  if (diffMonths <= 6) return { urgency:'segera', urgencyLabel:'Segera', keterangan:'PERSIAPAN: Sisa 4-6 bulan. Cek SK Pangkat & data keluarga SIASN.' };
+  return { urgency:'menunggu', urgencyLabel:'Menunggu', keterangan:'MONITORING: Pastikan data profil di aplikasi sudah mutakhir.' };
+};
+
+/* ─── Auth ─── */
+const USERS = {
+  admin: { password: 'admin123', role: 'admin', name: 'Administrator' },
+  user: { password: 'user123', role: 'user', name: 'Petugas Monitoring' }
+};
+
+const LoginPage = ({ onLogin, error, dark }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onLogin(username, password);
+  };
+
+  const bg = dark ? '#0f172a' : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%)';
+  const card = dark ? '#1e293b' : '#fff';
+  const text = dark ? '#f1f5f9' : '#0f172a';
+  const muted = dark ? '#94a3b8' : '#64748b';
+  const border = dark ? '#334155' : '#e2e8f0';
+  const inp = dark ? '#0f172a' : '#f8fafc';
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: bg }}>
+      <div style={{ width: '100%', maxWidth: 400, padding: 30, borderRadius: 24, background: card, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <img src="logo.png" alt="Logo Pemkot Ternate" style={{ width: 60, height: 60, objectFit: 'contain', borderRadius: 8 }} />
+            <span style={{ color: '#4f46e5', fontWeight: 900, fontSize: 24 }}>SIPENSI</span>
+          </div>
+          <p style={{ fontSize: 12, color: muted, marginTop: 4 }}>Sistem Informasi & Monitoring Data Pensiun</p>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: `1px solid ${border}`, background: inp, color: text, fontSize: 13, fontWeight: 600, outline: 'none' }}
+              placeholder="Masukkan username"
+              required
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>Password</label>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: `1px solid ${border}`, background: inp, color: text, fontSize: 13, fontWeight: 600, outline: 'none' }}
+              placeholder="Masukkan password"
+              required
+            />
+          </div>
+
+          {error && (
+            <div style={{ padding: 12, borderRadius: 12, background: '#fef2f2', border: '1px solid #fecaca' }}>
+              <p style={{ color: '#dc2626', fontSize: 11, fontWeight: 600, textAlign: 'center' }}>{error}</p>
+            </div>
+          )}
+
+          <button type="submit" style={{ padding: '12px 20px', borderRadius: 12, background: '#4f46e5', color: '#fff', fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer', marginTop: 8 }}>
+            MASUK
+          </button>
+        </form>
+
+        <div style={{ marginTop: 20, padding: 12, borderRadius: 12, background: dark ? '#0f172a' : '#f1f5f9' }}>
+          <p style={{ fontSize: 10, fontWeight: 600, color: muted, textAlign: 'center', marginBottom: 8 }}>Pemerintah Kota Ternate 2026</p>
+          <div style={{ display: 'flex', justifyContent: 'center', fontSize: 10 }}>
+            <span style={{ color: '#4f46e5', fontWeight: 700 }}>Created by Dika Haryanto</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─── Dataset ─── */
+const CSV_DATA = [
+  { id:1,   Nama:"ISKANDAR WAHID, SE",                         NIP:"196811162006041012", Pangkat:"III/d", Jabatan:"KEPALA SEKSI INFORMASI PENCEGAHAN KEBAKARAN",                TMT:"2026-12-01", Unit:"Dinas Kebakaran",                                                  Operator:"IBU IRA",  StatusPensiun:"BUP" },
+  { id:2,   Nama:"ROHANI ABD. GAFUR",                          NIP:"196811281989032008", Pangkat:"III/c", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-12-01", Unit:"Puskesmas Siko",                                                   Operator:"IBU IRA",  StatusPensiun:"BUP" },
+  { id:3,   Nama:"M ALI, S.Pd",                                NIP:"196604021997111001", Pangkat:"III/d", Jabatan:"Guru Ahli Muda",                                             TMT:"2026-05-01", Unit:"SD Negeri 47 Kota Ternate",                                        Operator:"IBU IRA",  StatusPensiun:"BUP" },
+  { id:4,   Nama:"HARYANTO, S.Pd.SD",                          NIP:"196608101992031015", Pangkat:"IV/c",  Jabatan:"SMP Negeri 5 Kota Ternate",                                  TMT:"2026-09-01", Unit:"SD NEGERI 3 KOTA TERNATE",                                        Operator:"IBU IRA",  StatusPensiun:"BUP" },
+  { id:5,   Nama:"AFIA ESTERLINA PELMELAY, A.Md",              NIP:"196810252014072001", Pangkat:"III/a", Jabatan:"PENGELOLA LAYANAN OPERASIONAL",                              TMT:"2026-11-01", Unit:"Smp Negeri 14 Kota Ternate",                                       Operator:"IBU NAMI", StatusPensiun:"BUP" },
+  { id:6,   Nama:"HELIYUSAR KAMARULLAH, S.Pd.",                NIP:"196610122006041018", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-11-01", Unit:"SMP NEGERI 6 KOTA TERNATE",                                       Operator:"IBU NAMI", StatusPensiun:"BUP" },
+  { id:7,   Nama:"ABIDIN SAMSI",                               NIP:"196811191999031005", Pangkat:"II/d",  Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-12-01", Unit:"Dinas Pendidikan",                                                 Operator:"IBU NAMI", StatusPensiun:"BUP" },
+  { id:8,   Nama:"ZAINAB ALI",                                 NIP:"196811011991032010", Pangkat:"III/b", Jabatan:"KEPALA SUB BAGIAN TATA USAHA",                               TMT:"2026-12-01", Unit:"Smp Negeri 6 Kota Ternate",                                        Operator:"IBU NAMI" },
+  { id:9,   Nama:"MAHMUD ADAM",                                NIP:"196810122003121003", Pangkat:"III/b", Jabatan:"SEKRETARIS",                                                  TMT:"2026-11-01", Unit:"Kecamatan Moti",                                                  Operator:"PAK DIKA" },
+  { id:10,  Nama:"YUSUP SALAM",                                NIP:"196810302007011024", Pangkat:"III/a", Jabatan:"SEKRETARIS",                                                  TMT:"2026-11-01", Unit:"Kecamatan Pulau Hiri",                                            Operator:"PAK DIKA" },
+  { id:11,  Nama:"RIFAI HAMISI, SH",                           NIP:"196810061996031002", Pangkat:"III/c", Jabatan:"KEPALA SEKSI PEMERINTAHAN, KETENTRAMAN DAN KETERTIBAN",      TMT:"2026-11-01", Unit:"Kecamatan Pulau Ternate",                                          Operator:"PAK DIKA" },
+  { id:12,  Nama:"BAKAR KASIM",                                NIP:"196802141991031016", Pangkat:"III/d", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-03-01", Unit:"Kecamatan Ternate Barat",                                          Operator:"PAK RAIS" },
+  { id:13,  Nama:"SURIA DUWILA",                               NIP:"196811072001122002", Pangkat:"III/b", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-12-01", Unit:"Bagian Umum",                                                      Operator:"PAK RAIS" },
+  { id:14,  Nama:"SALWIA ANWAR",                               NIP:"196810102006042016", Pangkat:"III/a", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-11-01", Unit:"Sekretariat DPRD",                                                 Operator:"PAK RAIS" },
+  { id:15,  Nama:"MIRNA TJAPALULU",                            NIP:"196805052001122004", Pangkat:"III/d", Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-06-01", Unit:"Badan Penanggulangan Bencana Daerah",                             Operator:"IBU IRA"  },
+  { id:16,  Nama:"SURYANI HAMZAH, S.Keb",                     NIP:"196808081990032011", Pangkat:"III/d", Jabatan:"Bidan Ahli Muda",                                            TMT:"2026-09-01", Unit:"Puskesmas Jambula",                                               Operator:"IBU IRA"  },
+  { id:17,  Nama:"HAJAR ARSAD, A.Md.Keb",                     NIP:"196809102006042017", Pangkat:"III/c", Jabatan:"Bidan Penyelia",                                             TMT:"2026-10-01", Unit:"Puskesmas Jambula",                                               Operator:"IBU IRA"  },
+  { id:18,  Nama:"MABUD ABAS",                                 NIP:"196712232010011001", Pangkat:"II/d",  Jabatan:"OPERATOR LAYANAN OPERASIONAL",                               TMT:"2027-01-01", Unit:"Dinas Lingkungan Hidup",                                           Operator:"IBU IRA"  },
+  { id:19,  Nama:"NURDIANA USMAN SYAH",                        NIP:"196712161992032007", Pangkat:"III/c", Jabatan:"Analis Kebijakan Ahli Muda",                                 TMT:"2027-01-01", Unit:"Dinas Pariwisata",                                                 Operator:"IBU IRA"  },
+  { id:20,  Nama:"RUSNI RAHIM, S.Pd",                          NIP:"196512121987122008", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2027-01-01", Unit:"SD NEGERI 4 KOTA TERNATE",                                        Operator:"IBU IRA"  },
+  { id:21,  Nama:"HAYATUDDIN HAMISI, S.Pd",                    NIP:"196601121994121003", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-02-01", Unit:"SMP NEGERI 1 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:22,  Nama:"JONI GANI, S.Pd",                            NIP:"196801141991031013", Pangkat:"III/c", Jabatan:"KEPALA SUB BAGIAN TATA USAHA",                               TMT:"2026-02-01", Unit:"Smp Negeri 5 Kota Ternate",                                        Operator:"IBU IRA"  },
+  { id:23,  Nama:"Dra. SUGIARTINI, MM",                        NIP:"196601091995112001", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-02-01", Unit:"SMP NEGERI 5 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:24,  Nama:"IBRAHIM ABDULLAH MARSAOLY, S.Pd",            NIP:"196601252000081001", Pangkat:"IV/a",  Jabatan:"Guru Ahli Muda",                                             TMT:"2026-02-01", Unit:"SMP NEGERI 7 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:25,  Nama:"SYARIF SAMSUDIN, S.Pd",                      NIP:"196601212006041008", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-02-01", Unit:"SMP NEGERI 9 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:26,  Nama:"BIDAHATI ALY, S.PdI",                        NIP:"196601012001032003", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-02-01", Unit:"SD NEGERI 29 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:27,  Nama:"HUSEN UMAR, S.Pd",                           NIP:"196601011999101002", Pangkat:"IV/a",  Jabatan:"Guru Ahli Muda",                                             TMT:"2026-02-01", Unit:"SD NEGERI 58 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:28,  Nama:"AT SALEH, S.Pd",                             NIP:"196602212001031001", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-03-01", Unit:"SD NEGERI 80 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:29,  Nama:"MARDIANA TUNDALI, SE",                       NIP:"196603251996012001", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-04-01", Unit:"SMP NEGERI 1 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:30,  Nama:"Dra. ONI LOGAH, M.PdI",                      NIP:"196803181994032007", Pangkat:"IV/a",  Jabatan:"KEPALA SATUAN PENDIDIKAN DASAR KEC. KOTA TERNATE SELATAN",   TMT:"2026-04-01", Unit:"Satuan Pendidikan Dasar Kec. Kota Ternate Selatan",                Operator:"IBU IRA"  },
+  { id:31,  Nama:"SUHARNI BASIR",                              NIP:"196803091986032001", Pangkat:"III/b", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-04-01", Unit:"Satuan Pendidikan Dasar Kec. Kota Ternate Selatan",                Operator:"IBU IRA"  },
+  { id:32,  Nama:"A RAHMAN JUMATI, S.Pd",                      NIP:"196603032001031002", Pangkat:"IV/a",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-04-01", Unit:"SD Negeri 28 Kota Ternate",                                        Operator:"IBU IRA"  },
+  { id:33,  Nama:"FATIMAH USMAN",                              NIP:"196603102001032001", Pangkat:"III/b", Jabatan:"Guru Ahli Pertama",                                           TMT:"2026-04-01", Unit:"SD Negeri 37 Kota Ternate",                                        Operator:"IBU IRA"  },
+  { id:34,  Nama:"SURIYA ABBAS, A.Ma",                         NIP:"196603091992032012", Pangkat:"IV/a",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-04-01", Unit:"SD NEGERI 39 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:35,  Nama:"RATNA HI A RAHMAN, S.Pd",                    NIP:"196603222001032001", Pangkat:"IV/a",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-04-01", Unit:"SD Negeri 68 Kota Ternate",                                        Operator:"IBU IRA"  },
+  { id:36,  Nama:"SUARDI SOLEMAN",                             NIP:"196803162001031004", Pangkat:"III/d", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-04-01", Unit:"SD NEGERI 73 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:37,  Nama:"SURYANI GARWAN, S.Pd",                       NIP:"196604241994032011", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-05-01", Unit:"SMP NEGERI 4 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:38,  Nama:"LAELA SJAMSUDDIN",                           NIP:"196804221991032011", Pangkat:"III/b", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-05-01", Unit:"Smp Negeri 7 Kota Ternate",                                        Operator:"IBU IRA"  },
+  { id:39,  Nama:"RUSTAM ACHMAD HUSAIN, S.Pd",                 NIP:"196604242001031001", Pangkat:"IV/a",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-05-01", Unit:"SD NEGERI 42 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:40,  Nama:"RUKIA TAHER, S.Pd",                          NIP:"196604301987122003", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-05-01", Unit:"SD NEGERI 45 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:41,  Nama:"FAUJIA NOHO, S.Pd",                          NIP:"196604051987122004", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-05-01", Unit:"SD NEGERI 50 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:42,  Nama:"ANI HI MUHAHMMAD, S.Pd.SD",                  NIP:"196604041987122006", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-05-01", Unit:"SD Negeri 7 Kota Ternate",                                         Operator:"IBU IRA"  },
+  { id:43,  Nama:"HUSEN NOHO, S.Pd.",                          NIP:"196605151995121007", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-06-01", Unit:"SMP NEGERI 3 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:44,  Nama:"NURDIN AHADI, S.Pd",                         NIP:"196605241999101001", Pangkat:"IV/a",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-06-01", Unit:"SMP NEGERI 5 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:45,  Nama:"KURAISIA MAHMUD PORA, S.Pd.AUD",             NIP:"196605051988032022", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-06-01", Unit:"PAUD PEMBINA 3 KOTA TERNATE",                                     Operator:"IBU IRA"  },
+  { id:46,  Nama:"TAHER KADER, S.PdI",                         NIP:"196605022007011028", Pangkat:"III/b", Jabatan:"Guru Ahli Pertama",                                           TMT:"2026-06-01", Unit:"SD NEGERI 25 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:47,  Nama:"RUGAYA JAFAR, S.Pd",                         NIP:"196605021992082001", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-06-01", Unit:"SD NEGERI 45 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:48,  Nama:"JOHRA HI ABD RAHMAN",                        NIP:"196611232000122001", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-12-01", Unit:"SMP NEGERI 2 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:49,  Nama:"SITRA HALIL, S.Pd",                          NIP:"196611101994042001", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-12-01", Unit:"SD NEGERI 64 KOTA TERNATE",                                       Operator:"IBU IRA"  },
+  { id:50,  Nama:"ANASRIN HI.HAMDJAH, S.IP",                   NIP:"196801152007011034", Pangkat:"III/c", Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-02-01", Unit:"Badan Pengelolaan Pajak Dan Retribusi Daerah",                    Operator:"IBU NAMI" },
+  { id:51,  Nama:"ALI MUHAMMAD",                               NIP:"196802252001121004", Pangkat:"III/b", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-03-01", Unit:"Badan Pengelolaan Pajak Dan Retribusi Daerah",                    Operator:"IBU NAMI" },
+  { id:52,  Nama:"FAISAL ALBAAR, S.IP",                        NIP:"196805032001121002", Pangkat:"III/c", Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-06-01", Unit:"Badan Pengelolaan Pajak Dan Retribusi Daerah",                    Operator:"IBU NAMI" },
+  { id:53,  Nama:"AGUS MAHMUD",                                NIP:"196808012001121004", Pangkat:"III/b", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-09-01", Unit:"Badan Pengelolaan Pajak Dan Retribusi Daerah",                    Operator:"IBU NAMI" },
+  { id:54,  Nama:"ALAUDIN MAHMUD",                             NIP:"196809152006041015", Pangkat:"III/a", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-10-01", Unit:"Badan Pengelolaan Pajak Dan Retribusi Daerah",                    Operator:"IBU NAMI" },
+  { id:55,  Nama:"ERRNY TJAN, SE, M.Si",                       NIP:"196809291992122001", Pangkat:"-",     Jabatan:"KEPALA BIDANG EKONOMI DAN SUMBER DAYA ALAM",                 TMT:"2026-10-01", Unit:"Badan Perencanaan Pembangunan Penelitian Dan Pengembangan Daerah",Operator:"IBU NAMI" },
+  { id:56,  Nama:"RIDWAN RATMIN, S.Pi",                        NIP:"196810122003121003", Pangkat:"IV/a",  Jabatan:"PENATA KELOLA KELAUTAN DAN PERIKANAN",                       TMT:"2026-11-01", Unit:"Dinas Kelautan Dan Perikanan",                                     Operator:"IBU NAMI" },
+  { id:57,  Nama:"SAMIAN FATGEHIPON, S.AP",                    NIP:"196712102001122001", Pangkat:"III/b", Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2027-01-01", Unit:"Dinas Kependudukan Dan Pencatatan Sipil",                         Operator:"IBU NAMI" },
+  { id:58,  Nama:"RIMA HARYATI, SH",                           NIP:"196802181999032007", Pangkat:"IV/b",  Jabatan:"KEPALA BIDANG PELAYANAN PENDAFTARAN PENDUDUK",               TMT:"2026-03-01", Unit:"Dinas Kependudukan Dan Pencatatan Sipil",                         Operator:"IBU NAMI" },
+  { id:59,  Nama:"MARWA LESTALUHU, A,Md.Kep",                  NIP:"196804191988122004", Pangkat:"III/d", Jabatan:"Perawat Penyelia",                                            TMT:"2026-05-01", Unit:"Puskesmas Kota",                                                  Operator:"IBU NAMI" },
+  { id:60,  Nama:"SITTI SUHAIMI",                              NIP:"196807161992032006", Pangkat:"III/d", Jabatan:"Perawat Penyelia",                                            TMT:"2026-08-01", Unit:"Puskesmas Siko",                                                  Operator:"IBU NAMI" },
+  { id:61,  Nama:"IPSON ARAMUDA, SE., SE.M.Si",                NIP:"196804241994031010", Pangkat:"IV/a",  Jabatan:"KEPALA BIDANG PERSANDIAN DAN PENGOLAHAN DATA STATISTIK",     TMT:"2026-05-01", Unit:"Dinas Komunikasi Informatika Dan Persandian",                     Operator:"IBU NAMI" },
+  { id:62,  Nama:"KASMAN TUGUIS",                              NIP:"196803012006041020", Pangkat:"III/a", Jabatan:"OPERATOR LAYANAN OPERASIONAL",                               TMT:"2026-04-01", Unit:"Dinas Lingkungan Hidup",                                           Operator:"IBU NAMI" },
+  { id:63,  Nama:"ISMAD ABDUL KARIM",                          NIP:"196805112003121007", Pangkat:"III/b", Jabatan:"OPERATOR LAYANAN OPERASIONAL",                               TMT:"2026-06-01", Unit:"Dinas Lingkungan Hidup",                                           Operator:"IBU NAMI" },
+  { id:64,  Nama:"FARIDA A SYAH, S.PD",                        NIP:"196806081994122005", Pangkat:"IV/a",  Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-07-01", Unit:"Dinas Pariwisata",                                                 Operator:"IBU NAMI" },
+  { id:65,  Nama:"SETIJA HADI, -, A.Md",                       NIP:"196802262007011016", Pangkat:"III/a", Jabatan:"PENGOLAH DATA DAN INFORMASI",                                TMT:"2026-03-01", Unit:"Dinas Pekerjaan Umum Dan Penataan Ruang",                         Operator:"IBU NAMI" },
+  { id:66,  Nama:"JUDDRA TUHEPALY",                            NIP:"196801161990062001", Pangkat:"III/d", Jabatan:"Penggerak Swadaya Masyarakat Ahli Muda",                     TMT:"2026-02-01", Unit:"Dinas Pemberdayaan Perempuan Dan Perlindungan Anak",              Operator:"IBU NAMI" },
+  { id:67,  Nama:"ASVIRA BEREAMI, SH",                         NIP:"196809292001122003", Pangkat:"III/d", Jabatan:"PENATA KELOLA PEMBERDAYAAN PEREMPUAN DAN PERLINDUNGAN ANAK",  TMT:"2026-10-01", Unit:"Dinas Pemberdayaan Perempuan Dan Perlindungan Anak",              Operator:"IBU NAMI" },
+  { id:68,  Nama:"ANSAR HI. USMAN",                            NIP:"196803152007011050", Pangkat:"II/d",  Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-04-01", Unit:"Dinas Penanaman Modal Dan Pelayanan Terpadu Satu Pintu",           Operator:"IBU NAMI" },
+  { id:69,  Nama:"Drs. BAHTIAR TENG",                          NIP:"196605021992031016", Pangkat:"IV/c",  Jabatan:"KEPALA DINAS PENANAMAN MODAL DAN PELAYANAN TERPADU SATU PINTU",TMT:"2026-06-01", Unit:"Dinas Penanaman Modal Dan Pelayanan Terpadu Satu Pintu",      Operator:"IBU NAMI" },
+  { id:70,  Nama:"ROSMINA ALBAAR, S.Pd",                       NIP:"196512251986042006", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2027-01-01", Unit:"SD NEGERI 12 KOTA TERNATE",                                       Operator:"IBU NAMI" },
+  { id:71,  Nama:"SAMSUDIN SALEH",                             NIP:"196512142001031001", Pangkat:"III/c", Jabatan:"Guru Ahli Muda",                                             TMT:"2027-01-01", Unit:"SD NEGERI 74 KOTA TERNATE",                                       Operator:"IBU NAMI" },
+  { id:72,  Nama:"RATNA MUHAMAD",                              NIP:"196805061994042001", Pangkat:"II/d",  Jabatan:"OPERATOR LAYANAN OPERASIONAL",                               TMT:"2026-06-01", Unit:"SD NEGERI 49 KOTA TERNATE",                                       Operator:"IBU NAMI" },
+  { id:73,  Nama:"IDJRINA YUSUF IDRUS",                        NIP:"196806042007012041", Pangkat:"III/a", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-07-01", Unit:"Smp Negeri 7 Kota Ternate",                                        Operator:"IBU NAMI" },
+  { id:74,  Nama:"MAJIDA MAHMUD, S.Pd",                        NIP:"196606012007012022", Pangkat:"IV/a",  Jabatan:"Guru Ahli Muda",                                             TMT:"2026-07-01", Unit:"PAUD PEMBINA 12 KOTA TERNATE",                                    Operator:"IBU NAMI" },
+  { id:75,  Nama:"GAFUR U SANGAJI, SST",                       NIP:"196807152006041018", Pangkat:"III/d", Jabatan:"Penyuluh Pertanian Ahli Muda",                               TMT:"2026-08-01", Unit:"Bpp Kecamatan Moti",                                              Operator:"IBU NAMI" },
+  { id:76,  Nama:"MUHLIS SIBUA, S.Sos",                        NIP:"196606062000031005", Pangkat:"IV/b",  Jabatan:"Pengawas Penyelenggaraan Urusan Pemerintahan Daerah Ahli Madya",TMT:"2026-07-01", Unit:"Inspektorat",                                               Operator:"IBU NAMI" },
+  { id:77,  Nama:"JUNUS YAU, SH, MM",                          NIP:"196801091996031002", Pangkat:"IV/c",  Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-02-01", Unit:"Kecamatan Kota Ternate Selatan",                                 Operator:"IBU NAMI" },
+  { id:78,  Nama:"USMAN NUSA",                                 NIP:"196712052007011025", Pangkat:"II/c",  Jabatan:"PENGELOLA ADMINISTRASI PEMERINTAHAN",                        TMT:"2027-01-01", Unit:"Kecamatan Kota Ternate Utara",                                   Operator:"IBU NAMI" },
+  { id:79,  Nama:"YUNUS HI JAFAR, S.IP",                       NIP:"196804052001121004", Pangkat:"III/d", Jabatan:"KEPALA SEKSI PEMERINTAHAN",                                  TMT:"2026-05-01", Unit:"Kecamatan Pulau Ternate",                                         Operator:"IBU NAMI" },
+  { id:80,  Nama:"ANI NERI",                                   NIP:"196807041997032005", Pangkat:"III/a", Jabatan:"KEPALA SEKSI PEMERINTAHAN, KETENTRAMAN DAN KETERTIBAN",      TMT:"2026-08-01", Unit:"Kecamatan Pulau Ternate",                                         Operator:"IBU NAMI" },
+  { id:81,  Nama:"MOHD. TAUFIK DJAUHAR, SE.M.Si",              NIP:"196602081989021001", Pangkat:"IV/c",  Jabatan:"ASISTEN PEREKONOMIAN DAN PEMBANGUNAN",                       TMT:"2026-03-01", Unit:"Sekretariat Daerah",                                              Operator:"IBU NAMI" },
+  { id:82,  Nama:"TAUFIK SUDIN",                               NIP:"196804092001121005", Pangkat:"III/b", Jabatan:"OPERATOR LAYANAN OPERASIONAL",                               TMT:"2026-05-01", Unit:"Bagian Protokoler Komunikasi Pimpinan",                           Operator:"IBU NAMI" },
+  { id:83,  Nama:"RUSNI MUHAMAD SALEH",                        NIP:"196805082001122002", Pangkat:"III/b", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-06-01", Unit:"Sekretariat Daerah",                                              Operator:"IBU NAMI" },
+  { id:84,  Nama:"DRS. SARIF HI SABATUN",                      NIP:"196604161993031008", Pangkat:"IV/c",  Jabatan:"STAF AHLI BIDANG EKONOMI, KEUANGAN DAN PEMBANGUNAN",         TMT:"2026-05-01", Unit:"Staf Ahli Bidang Ekonomi, Keuangan Dan Pembangunan",              Operator:"IBU NAMI" },
+  { id:85,  Nama:"Dra. ARDINI RADJILOEN",                      NIP:"196606061992022002", Pangkat:"IV/c",  Jabatan:"STAF AHLI BIDANG PEMERINTAHAN, HUKUM DAN POLITIK",            TMT:"2026-07-01", Unit:"Staf Ahli Bidang Pemerintahan, Hukum Dan Politik",                Operator:"IBU NAMI" },
+  { id:86,  Nama:"MERY TAN",                                   NIP:"196810122003121003", Pangkat:"III/d", Jabatan:"PENGOLAH DATA DAN INFORMASI",                                TMT:"2026-11-01", Unit:"Dinas Kesehatan",                                                 Operator:"PAK DIKA" },
+  { id:87,  Nama:"DIANA KHARIE, SP",                           NIP:"196806222001122002", Pangkat:"IV/a",  Jabatan:"KEPALA BIDANG KETERSEDIAAN DAN KERAWANAN PANGAN",            TMT:"2026-07-01", Unit:"Dinas Ketahanan Pangan",                                           Operator:"PAK DIKA" },
+  { id:88,  Nama:"SAID ARSAD DJABAR",                          NIP:"196807232008011011", Pangkat:"III/a", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-08-01", Unit:"Dinas Ketahanan Pangan",                                           Operator:"PAK DIKA" },
+  { id:89,  Nama:"JUHRIA UMAR, S.Pd",                          NIP:"196606101987122004", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-07-01", Unit:"SD NEGERI 30 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:90,  Nama:"JUHU HASAN, S.Pd",                           NIP:"196606011987122006", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-07-01", Unit:"SD NEGERI 42 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:91,  Nama:"NURAIN UMASUGI, S.Pd",                       NIP:"196606181993032012", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-07-01", Unit:"SD Negeri 48 Kota Ternate",                                        Operator:"PAK DIKA" },
+  { id:92,  Nama:"LILISURIANI RENTI, S.Pd",                    NIP:"196606231986042005", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-07-01", Unit:"SD NEGERI 58 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:93,  Nama:"GANI FALILA",                                NIP:"196806022001031001", Pangkat:"II/d",  Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-07-01", Unit:"SD NEGERI 72 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:94,  Nama:"HUSNA NOHO, S.Pd",                           NIP:"196606111987122003", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-07-01", Unit:"SD NEGERI 80 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:95,  Nama:"IKHSAN HUSEN, S.Pd",                         NIP:"196807051994121007", Pangkat:"IV/a",  Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-08-01", Unit:"Dinas Pendidikan",                                                Operator:"PAK DIKA" },
+  { id:96,  Nama:"NURLIA PANDAWA",                             NIP:"196807281991032008", Pangkat:"III/b", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-08-01", Unit:"Smp Negeri 1 Kota Ternate",                                        Operator:"PAK DIKA" },
+  { id:97,  Nama:"MANSUR YUSUF, S.Pd",                         NIP:"196607082000081001", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-08-01", Unit:"SMP NEGERI 3 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:98,  Nama:"MARYAM BUAMONA, S.Pd",                       NIP:"196607161990032009", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-08-01", Unit:"SMP NEGERI 5 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:99,  Nama:"Dra. EKA WINDAHWATI",                        NIP:"196607061998022003", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-08-01", Unit:"SMP NEGERI 7 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:100, Nama:"HUSNA, S.Pd.",                               NIP:"196607031998021003", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-08-01", Unit:"SMP NEGERI 7 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:101, Nama:"MAR`AN, S.Pd",                               NIP:"196607121989101002", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-08-01", Unit:"SD Negeri 63 Kota Ternate",                                        Operator:"PAK DIKA" },
+  { id:102, Nama:"MUHAMMAD ZEN UMAR, S.Pd",                    NIP:"196608101993031012", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-09-01", Unit:"SMP NEGERI 3 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:103, Nama:"SITTI ABDURRAHIM, S.Pd.",                    NIP:"196608011995122002", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-09-01", Unit:"SMP NEGERI 7 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:104, Nama:"ROHANI ISMAIL, S.Pd.AUD",                    NIP:"196608101987032013", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-09-01", Unit:"PAUD PEMBINA 2 KOTA TERNATE",                                     Operator:"PAK DIKA" },
+  { id:105, Nama:"HIRJA SAHAFIN",                              NIP:"196808122001032001", Pangkat:"II/c",  Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-09-01", Unit:"SD NEGERI 13 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:106, Nama:"ISMAIL GOLENG, S.Pd",                        NIP:"196608091987121003", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-09-01", Unit:"SD Negeri 24 Kota Ternate",                                        Operator:"PAK DIKA" },
+  { id:107, Nama:"FAHRIA ADAM, S.Pd.I",                        NIP:"196608191987122002", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-09-01", Unit:"SD NEGERI 30 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:108, Nama:"JOHANA RETOB, S.Pd",                         NIP:"196608211987122003", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-09-01", Unit:"SD NEGERI 9 KOTA TERNATE",                                        Operator:"PAK DIKA" },
+  { id:109, Nama:"DRS. SUDARMANTO",                            NIP:"196609051997021001", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-10-01", Unit:"SMP NEGERI 1 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:110, Nama:"HADIAH RAJAB, S.Pd",                         NIP:"196609211990032007", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-10-01", Unit:"SMP NEGERI 4 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:111, Nama:"IAM MUHAMAD, S.Pd",                          NIP:"196609191987032006", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-10-01", Unit:"PAUD PEMBINA 3 KOTA TERNATE",                                     Operator:"PAK DIKA" },
+  { id:112, Nama:"EDNAH TAIL",                                 NIP:"196609171986042003", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-10-01", Unit:"SD NEGERI 11 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:113, Nama:"AISYA DJAFAR, S.Pd",                         NIP:"196609241987122005", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-10-01", Unit:"SD Negeri 20 Kota Ternate",                                        Operator:"PAK DIKA" },
+  { id:114, Nama:"UYUN ABDULLAH, S.Pd",                        NIP:"196609091999072001", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-10-01", Unit:"SD Negeri 23 Kota Ternate",                                        Operator:"PAK DIKA" },
+  { id:115, Nama:"AFIAT AYUB WAHAB, S.Pd",                     NIP:"196609101991112002", Pangkat:"IV/a",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-10-01", Unit:"SD Negeri 37 Kota Ternate",                                        Operator:"PAK DIKA" },
+  { id:116, Nama:"SAFIA AHMAD, A.Ma, S.PdI",                   NIP:"196609281999102001", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-10-01", Unit:"SD NEGERI 49 KOTA TERNATE",                                       Operator:"PAK DIKA" },
+  { id:117, Nama:"EMELIA IDRUS",                               NIP:"196609281986042003", Pangkat:"IV/a",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-10-01", Unit:"SD Negeri 51 Kota Ternate",                                        Operator:"PAK DIKA" },
+  { id:118, Nama:"ROCHANI KAMARULLAH, S.Pd.SD",                NIP:"196609201987122003", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-10-01", Unit:"SD Negeri 68 Kota Ternate",                                        Operator:"PAK DIKA" },
+  { id:119, Nama:"WAHAD KAIDATI, S.Sos",                       NIP:"196712162007011018", Pangkat:"III/d", Jabatan:"KEPALA BIDANG PENEGAKAN PERUNDANG-UNDANGAN DAERAH",           TMT:"2027-01-01", Unit:"Satuan Polisi Pamong Praja",                                      Operator:"PAK DIKA", StatusPensiun:"BUP" },
+  { id:120, Nama:"TOTO SUKAMTO, S.Sos",                        NIP:"196805062001121002", Pangkat:"IV/b",  Jabatan:"SEKRETARIS",                                                  TMT:"2026-06-01", Unit:"Satuan Polisi Pamong Praja",                                      Operator:"PAK DIKA" },
+  { id:121, Nama:"RAMLA HAJI ABDULLAH, A.Md.AK",               NIP:"196808202001122003", Pangkat:"III/d", Jabatan:"Analis Kebijakan Ahli Muda",                                 TMT:"2026-09-01", Unit:"Sekretariat DPRD",                                                Operator:"PAK DIKA" },
+  { id:122, Nama:"DAHLAN HASAN, S.Sos",                        NIP:"196712232001122002", Pangkat:"IV/a",  Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2027-01-01", Unit:"Badan Kesatuan Bangsa Dan Politik",                               Operator:"PAK RAIS", StatusPensiun:"BUP" },
+  { id:123, Nama:"AISAH SIRADJU, S.A.P.",                      NIP:"196810122003121003", Pangkat:"III/d", Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-11-01", Unit:"Badan Pengelolaan Pajak Dan Retribusi Daerah",                    Operator:"PAK RAIS" },
+  { id:124, Nama:"HARSONO, S.Pd",                              NIP:"196512051992031008", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2027-01-01", Unit:"SMP NEGERI 2 KOTA TERNATE",                                       Operator:"PAK RAIS", StatusPensiun:"BUP" },
+  { id:125, Nama:"MAN MUSA, S.Pd.I",                           NIP:"196512300999031006", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2027-01-01", Unit:"SD Negeri 23 Kota Ternate",                                        Operator:"PAK RAIS", StatusPensiun:"BUP" },
+  { id:126, Nama:"ACIA TAHER, S.Pd",                           NIP:"196512251987122004", Pangkat:"IV/c",  Jabatan:"Guru Ahli Madya",                                            TMT:"2027-01-01", Unit:"SD NEGERI 29 KOTA TERNATE",                                       Operator:"PAK RAIS", StatusPensiun:"BUP" },
+  { id:127, Nama:"AISAH MUSA, S.Pd",                           NIP:"196609132001032001", Pangkat:"IV/a",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-10-01", Unit:"SD NEGERI 69 KOTA TERNATE",                                       Operator:"PAK RAIS" },
+  { id:128, Nama:"AMINAH UMAR, S.Pd",                          NIP:"196610201987122006", Pangkat:"IV/b",  Jabatan:"Guru Ahli Madya",                                            TMT:"2026-11-01", Unit:"SD NEGERI 1 KOTA TERNATE",                                        Operator:"PAK RAIS" },
+  { id:129, Nama:"NURAINI DJUMATI, SE",                        NIP:"196804271993022002", Pangkat:"III/d", Jabatan:"Penata Kependudukan dan Keluarga Berencana Ahli Muda",        TMT:"2026-05-01", Unit:"Dinas Pengendalian Penduduk Dan Keluarga Berencana",              Operator:"PAK RAIS" },
+  { id:130, Nama:"ENDANG HARTATI NOCHO DJAFAAR",               NIP:"196805061999032006", Pangkat:"IV/a",  Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-06-01", Unit:"Dinas Perindustrian Dan Perdagangan",                             Operator:"PAK RAIS" },
+  { id:131, Nama:"HASAN ADAM, SE",                             NIP:"196809071988011001", Pangkat:"III/d", Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-10-01", Unit:"Dinas Perindustrian Dan Perdagangan",                             Operator:"PAK RAIS" },
+  { id:132, Nama:"HAPSA RASIDIN",                              NIP:"196802281993032009", Pangkat:"III/d", Jabatan:"Arsiparis Ahli Muda",                                         TMT:"2026-03-01", Unit:"Dinas Perpustakaan Dan Kearsipan Daerah",                         Operator:"PAK RAIS" },
+  { id:133, Nama:"MINARNI MOHAMMAD SALEH, SH",                 NIP:"196808212000032003", Pangkat:"IV/a",  Jabatan:"KEPALA BIDANG PELESTARIAN DAN ALIH MEDIA",                   TMT:"2026-09-01", Unit:"Dinas Perpustakaan Dan Kearsipan Daerah",                         Operator:"PAK RAIS" },
+  { id:134, Nama:"MEGAH MULTINIWATI EDA, SP",                  NIP:"196806072001122001", Pangkat:"III/d", Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-07-01", Unit:"Dinas Pertanian",                                                 Operator:"PAK RAIS" },
+  { id:135, Nama:"SUHARNO, SP, SP.MM",                         NIP:"196808011998031007", Pangkat:"IV/b",  Jabatan:"PENATA LAYANAN OPERASIONAL",                                 TMT:"2026-09-01", Unit:"Dinas Pertanian",                                                 Operator:"PAK RAIS" },
+  { id:136, Nama:"NIKEN KUSTINAH IRIANI",                      NIP:"196806162006042016", Pangkat:"III/a", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-07-01", Unit:"Dinas Tenaga Kerja",                                              Operator:"PAK RAIS" },
+  { id:137, Nama:"ROHANI PANJAB MAHLI, SH",                    NIP:"196610141992032007", Pangkat:"IV/c",  Jabatan:"Pengawas Penyelenggaraan Urusan Pemerintahan Daerah Ahli Madya",TMT:"2026-11-01", Unit:"Inspektorat",                                               Operator:"PAK RAIS" },
+  { id:138, Nama:"HARITSAH RUSLY TOTOU, S.Pd",                 NIP:"196803092006042011", Pangkat:"IV/a",  Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-04-01", Unit:"Kecamatan Kota Ternate Selatan",                                 Operator:"PAK RAIS" },
+  { id:139, Nama:"MUHSIN BIN SYEH ABUBAKAR, SP.M.Si",          NIP:"196803021998031005", Pangkat:"IV/b",  Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-04-01", Unit:"Kecamatan Kota Ternate Selatan",                                 Operator:"PAK RAIS" },
+  { id:140, Nama:"BUSTAMI SUNYA, S.IP",                        NIP:"196804201993031015", Pangkat:"IV/a",  Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-05-01", Unit:"Kecamatan Kota Ternate Selatan",                                 Operator:"PAK RAIS" },
+  { id:141, Nama:"AMIL ISMAIL",                                NIP:"196807081993031010", Pangkat:"III/c", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-08-01", Unit:"Kecamatan Kota Ternate Selatan",                                 Operator:"PAK RAIS" },
+  { id:142, Nama:"GAZALI ABDUL RACHMAN, SH",                   NIP:"196808251993101002", Pangkat:"III/d", Jabatan:"KEPALA SEKSI PEMBANGUNAN DAN PEMBERDAYAAN MASYARAKAT",        TMT:"2026-09-01", Unit:"Kecamatan Kota Ternate Selatan",                                 Operator:"PAK RAIS" },
+  { id:143, Nama:"DAMIR MUSTAFA",                              NIP:"196803062002121010", Pangkat:"III/b", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-04-01", Unit:"Kecamatan Kota Ternate Tengah",                                  Operator:"PAK RAIS" },
+  { id:144, Nama:"JUNITA BIAN",                                NIP:"196806261994032011", Pangkat:"III/c", Jabatan:"SEKRETARIS",                                                  TMT:"2026-07-01", Unit:"Kecamatan Kota Ternate Tengah",                                  Operator:"PAK RAIS" },
+  { id:145, Nama:"FAUZIAH ALI SIDIK",                          NIP:"196807082001122002", Pangkat:"III/a", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-08-01", Unit:"Kecamatan Kota Ternate Tengah",                                  Operator:"PAK RAIS" },
+  { id:146, Nama:"NORMA MENER",                                NIP:"196801151999102001", Pangkat:"III/d", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-02-01", Unit:"Kecamatan Kota Ternate Utara",                                   Operator:"PAK RAIS" },
+  { id:147, Nama:"RUSTAM KHARIE, ST",                          NIP:"196802072006041008", Pangkat:"III/d", Jabatan:"SEKRETARIS",                                                  TMT:"2026-03-01", Unit:"Kecamatan Kota Ternate Utara",                                   Operator:"PAK RAIS" },
+  { id:148, Nama:"SALIM FALILA",                               NIP:"196802242001121002", Pangkat:"III/a", Jabatan:"KEPALA SEKSI PEMERINTAHAN, KETENTRAMAN DAN KETERTIBAN",      TMT:"2026-03-01", Unit:"Kecamatan Kota Ternate Utara",                                   Operator:"PAK RAIS" },
+  { id:149, Nama:"RAMLAN UMAR",                                NIP:"196805202001121003", Pangkat:"III/a", Jabatan:"KEPALA SEKSI PEMBANGUNAN DAN PEMBERDAYAAN MASYARAKAT",        TMT:"2026-06-01", Unit:"Kecamatan Kota Ternate Utara",                                   Operator:"PAK RAIS" },
+  { id:150, Nama:"FARUK ALBAAR, SE.M.Si",                      NIP:"196808021992031010", Pangkat:"IV/c",  Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2026-09-01", Unit:"Kecamatan Kota Ternate Utara",                                   Operator:"PAK RAIS" },
+  { id:151, Nama:"HAMZAH A. DARAMAN",                          NIP:"196808102007011051", Pangkat:"III/a", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-09-01", Unit:"Kecamatan Kota Ternate Utara",                                   Operator:"PAK RAIS" },
+  { id:152, Nama:"DENTI MAHIBU",                               NIP:"196806112012121001", Pangkat:"II/a",  Jabatan:"PENGADMINISTRASI UMUM",                                      TMT:"2026-07-01", Unit:"Kecamatan Pulau Batang Dua",                                      Operator:"PAK RAIS" },
+  { id:153, Nama:"JAHRA MARDJUN",                              NIP:"196802161997072001", Pangkat:"III/d", Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-03-01", Unit:"Kecamatan Pulau Hiri",                                             Operator:"PAK RAIS" },
+  { id:154, Nama:"MANSUR ISHAK, SST",                          NIP:"196804252007011024", Pangkat:"III/a", Jabatan:"SEKRETARIS",                                                  TMT:"2026-05-01", Unit:"Kecamatan Pulau Hiri",                                             Operator:"PAK RAIS" },
+  { id:155, Nama:"ABD. KADER RAKIB, S.Sos",                    NIP:"196805152007011049", Pangkat:"III/c", Jabatan:"KEPALA SEKSI PEMBANGUNAN DAN PEMBERDAYAAN MASYARAKAT",        TMT:"2026-06-01", Unit:"Kecamatan Pulau Hiri",                                             Operator:"PAK RAIS" },
+  { id:156, Nama:"RUSLAN BAKAR",                               NIP:"196806282010011002", Pangkat:"II/d",  Jabatan:"PENGADMINISTRASI PERKANTORAN",                               TMT:"2026-07-01", Unit:"Kecamatan Pulau Hiri",                                             Operator:"PAK RAIS" },
+  { id:157, Nama:"ANAS, S.Pd., MM.Par",                        NIP:"196712151995121003", Pangkat:"IV/c",  Jabatan:"PENELAAH TEKNIS KEBIJAKAN",                                  TMT:"2027-01-01", Unit:"Bagian Organisasi",                                               Operator:"PAK RAIS", StatusPensiun:"BUP" },
+];
+
+const MONTHS = ["","Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+const OPERATORS = ["IBU IRA","IBU NAMI","PAK DIKA","PAK RAIS"];
+const OP_COLORS = { "IBU IRA":"#7c3aed","IBU NAMI":"#0891b2","PAK DIKA":"#d97706","PAK RAIS":"#16a34a" };
+const OP_BG    = { "IBU IRA":"#f5f3ff","IBU NAMI":"#ecfeff","PAK DIKA":"#fffbeb","PAK RAIS":"#f0fdf4" };
+
+/* ─── Mini progress bar ─── */
+const Bar = ({ pct, color }) => (
+  <div style={{ height:6, background:'#e2e8f0', borderRadius:99, overflow:'hidden', flex:1 }}>
+    <div style={{ height:'100%', width:`${pct}%`, background:color, borderRadius:99, transition:'width 0.5s' }} />
+  </div>
+);
+
+/* ─── Badge ─── */
+const BADGE_STYLE = {
+  'sangat-segera':{ bg:'#fef2f2', color:'#dc2626', border:'#fecaca' },
+  'segera':       { bg:'#fffbeb', color:'#d97706', border:'#fde68a' },
+  'menunggu':     { bg:'#eef2ff', color:'#4338ca', border:'#c7d2fe' },
+  'done':         { bg:'#f0fdf4', color:'#15803d', border:'#bbf7d0' },
+  'expired':      { bg:'#f8fafc', color:'#475569', border:'#cbd5e1' },
+};
+const Badge = ({ type, label }) => {
+  const bs = BADGE_STYLE[type] || BADGE_STYLE.menunggu;
+  return (
+    <span style={{ background:bs.bg, color:bs.color, border:`1px solid ${bs.border}`, padding:'2px 8px', borderRadius:6, fontSize:10, fontWeight:800, whiteSpace:'nowrap', display:'inline-block' }}>
+      {label}
+    </span>
+  );
+};
+
+/* ─── Stat Card ─── */
+const StatCard = ({ label, value, sub, icon, accent }) => (
+  <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:'16px 20px', display:'flex', flexDirection:'column', gap:8, boxShadow:'0 1px 4px rgba(0,0,0,0.05)', borderLeft:`4px solid ${accent}` }}>
+    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+      <p style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.06em' }}>{label}</p>
+      <span style={{ color:accent, opacity:0.7 }}>{icon}</span>
+    </div>
+    <p style={{ fontSize:28, fontWeight:900, color:'#0f172a', lineHeight:1 }}>{value}</p>
+    {sub && <p style={{ fontSize:11, color:'#94a3b8', fontWeight:600 }}>{sub}</p>}
+  </div>
+);
+
+/* ─── App ─── */
+const App = () => {
+  const [tab, setTab] = useState('monitoring');
+  const [dark, setDark] = useState(false);
+  const [sidebar, setSidebar] = useState(true);
+  const [q, setQ] = useState('');
+  const [filterOp, setFilterOp] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [csvData, setCsvData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Auth state
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loginError, setLoginError] = useState('');
+
+  // Data state - must be defined before useEffect that uses setData
+  const [data, setData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sipensi_status');
+      const map = saved ? JSON.parse(saved) : {};
+      return CSV_DATA.map(d => ({ ...d, Status: map[d.id] ?? 'Pending' }));
+    } catch { return CSV_DATA.map(d => ({ ...d, Status:'Pending' })); }
+  });
+
+  // Phone numbers state - must be defined before useEffect that uses setPhoneNumbers
+  const [phoneNumbers, setPhoneNumbers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sipensi_phone');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+
+  const handleLogin = (username, password) => {
+    const user = USERS[username];
+    if (user && user.password === password) {
+      setCurrentUser({ username, ...user });
+      setIsLoggedIn(true);
+      setLoginError('');
+    } else {
+      setLoginError('Username atau password salah');
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setIsLoggedIn(false);
+  };
+
+  const isAdmin = currentUser?.role === 'admin';
+
+  // All useEffect hooks must be called BEFORE any return statement
+  useEffect(() => {
+    loadData().then(data => {
+      setCsvData(data);
+      setLoading(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (csvData) {
+      try {
+        const saved = localStorage.getItem('sipensi_status');
+        const map = saved ? JSON.parse(saved) : {};
+        setData(csvData.map(d => ({ ...d, Status: map[d.id] ?? 'Pending' })));
+      } catch { setData(csvData.map(d => ({ ...d, Status:'Pending' }))); }
+    }
+  }, [csvData]);
+
+  useEffect(() => {
+    document.documentElement.style.background = dark ? '#0f172a' : '#f1f5f9';
+    document.body.style.background = dark ? '#0f172a' : '#f1f5f9';
+    document.body.style.color = dark ? '#f1f5f9' : '#0f172a';
+  }, [dark]);
+
+  useEffect(() => {
+    try {
+      const map = Object.fromEntries(data.map(d => [d.id, d.Status]));
+      localStorage.setItem('sipensi_status', JSON.stringify(map));
+    } catch {}
+  }, [data]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sipensi_phone', JSON.stringify(phoneNumbers));
+    } catch {}
+  }, [phoneNumbers]);
+
+  const processed = useMemo(() =>
+    data.map(item => ({ ...item, ...getStatusDetail(item) })).sort((a,b) => a.id-b.id),
+    [data]
+  );
+
+  const filtered = useMemo(() => {
+    const ql = q.toLowerCase();
+    const fm = filterMonth ? String(filterMonth).padStart(2,'0') : '';
+    return processed.filter(p => {
+      const matchQ = !q || p.Nama.toLowerCase().includes(ql) || p.Operator.toLowerCase().includes(ql);
+      const matchOp = !filterOp || p.Operator === filterOp;
+      const matchM = !fm || p.TMT.substring(5,7) === fm;
+      const matchStatus = statusFilter === 'all' || (p.StatusPensiun || 'BUP') === statusFilter;
+      return matchQ && matchOp && matchM && matchStatus;
+    });
+  }, [processed, q, filterOp, filterMonth, statusFilter]);
+
+  // Reset page when filters change - must be called unconditionally
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [q, filterOp, filterMonth, statusFilter]);
+
+  // Conditional render: show login page or main app
+  if (!isLoggedIn) {
+    return <LoginPage onLogin={handleLogin} error={loginError} dark={dark} />;
+  }
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedData = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const toggle = (id) => {
+    if (!isAdmin) return;
+    setData(prev => prev.map(p => p.id===id ? {...p, Status:p.Status==='Done'?'Pending':'Done'} : p));
+  };
+
+  // Aggregates
+  const total = processed.length;
+  const bupCount = processed.filter(d=>(d.StatusPensiun||'BUP')==='BUP').length;
+  const done = processed.filter(d=>d.Status==='Done').length;
+  const urgent = processed.filter(d=>d.urgency==='sangat-segera'&&d.Status!=='Done').length;
+  const expired = processed.filter(d=>d.urgency==='expired'&&d.Status!=='Done').length;
+  const pct = p => Math.round((p/total)*100);
+
+  const opStats = OPERATORS.map(op => {
+    const list = processed.filter(d=>d.Operator===op);
+    const doneN = list.filter(d=>d.Status==='Done').length;
+    return { op, total:list.length, done:doneN, pct:list.length?Math.round((doneN/list.length)*100):0 };
+  });
+
+  const monthStats = Array.from({length:12},(_,i)=>{
+    const m = String(i+1).padStart(2,'0');
+    const list = processed.filter(d=>d.TMT.substring(5,7)===m);
+    return { m:i+1, label:MONTHS[i+1], count:list.length, done:list.filter(d=>d.Status==='Done').length };
+  }).filter(x=>x.count>0);
+
+  // Theme
+  const bg = dark?'#0f172a':'#f1f5f9';
+  const card = dark?'#1e293b':'#fff';
+  const border = dark?'#334155':'#e2e8f0';
+  const muted = dark?'#94a3b8':'#64748b';
+  const text = dark?'#f1f5f9':'#0f172a';
+  const inp = dark?'#0f172a':'#f8fafc';
+
+  const selStyle = {
+    padding:'7px 10px', borderRadius:8, border:`1px solid ${border}`,
+    background:inp, color:text, fontSize:12, fontWeight:600, outline:'none', cursor:'pointer'
+  };
+
+  return (
+    <div style={{ minHeight:'100vh', display:'flex', background:bg, color:text, fontFamily:"'Segoe UI',system-ui,sans-serif", fontSize:13 }}>
+
+      {/* SIDEBAR */}
+      {sidebar && (
+        <aside style={{ width:220, flexShrink:0, background:card, borderRight:`1px solid ${border}`, display:'flex', flexDirection:'column', position:'sticky', top:0, height:'100vh', overflowY:'auto' }}>
+          {/* Logo */}
+          <div style={{ padding:'18px 16px', borderBottom:`1px solid ${border}`, display:'flex', alignItems:'center', gap:12 }}>
+            <img src="logo.png" alt="Logo Pvt" style={{ width:44, height:44, objectFit:'contain', borderRadius:10, flexShrink:0 }} />
+            <div>
+              <div style={{ fontWeight:900, fontSize:18, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', letterSpacing:'-0.02em', fontStyle:'italic' }}>SIPENSI</div>
+              <div style={{ fontSize:10, color:muted, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginTop:2 }}>Sistem Informasi & Monitoring Pensiun</div>
+            </div>
+          </div>
+          {/* Nav */}
+          <nav style={{ padding:'12px 10px', display:'flex', flexDirection:'column', gap:4 }}>
+            {[
+              { id:'dashboard', label:'Statistik Terkini', icon:<I.dash s={15}/> },
+              { id:'monitoring', label:'Database Pegawai', icon:<I.users s={15}/> },
+              { id:'tambah-pegawai', label:'Tambah Pegawai', icon:<I.person s={15}/> },
+              { id:'pensiunan-bulan', label:'Pensiunan per Bulan', icon:<I.calendar s={15}/> },
+            ].map(nav => (
+              <button key={nav.id} onClick={()=>setTab(nav.id)} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 12px', borderRadius:9, border:'none', cursor:'pointer', fontWeight:700, fontSize:12, textAlign:'left', background:tab===nav.id?'#4f46e5':'transparent', color:tab===nav.id?'#fff':muted, transition:'all 0.15s' }}>
+                {nav.icon}{nav.label}
+              </button>
+            ))}
+          </nav>
+          {/* Operator legend */}
+          <div style={{ padding:'0 10px 10px', marginTop:8 }}>
+            <p style={{ fontSize:9, fontWeight:700, color:muted, textTransform:'uppercase', letterSpacing:'0.1em', padding:'0 4px', marginBottom:6 }}>Operator</p>
+            <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 8px', borderRadius:7, marginBottom:2, background: filterOp===''?(dark?'#1e3a5f':'#eef2ff'):'transparent', cursor:'pointer' }} onClick={()=>{ setFilterOp(''); setTab('monitoring'); }}>
+              <div style={{ width:8, height:8, borderRadius:99, background:'#64748b', flexShrink:0 }}/>
+              <span style={{ fontSize:11, fontWeight:700, color: filterOp===''?'#4f46e5':muted, transition:'color 0.15s' }}>TOTAL</span>
+              <span style={{ marginLeft:'auto', fontSize:10, background: dark?'#334155':'#f1f5f9', color:muted, padding:'1px 5px', borderRadius:4, fontWeight:700 }}>
+                {processed.length}
+              </span>
+            </div>
+            {OPERATORS.map(op => (
+              <div key={op} style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 8px', borderRadius:7, marginBottom:2, background: filterOp===op?(dark?'#1e3a5f':'#eef2ff'):'transparent', cursor:'pointer' }} onClick={()=>{ setFilterOp(filterOp===op?'':op); setTab('monitoring'); }}>
+                <div style={{ width:8, height:8, borderRadius:99, background:OP_COLORS[op], flexShrink:0 }}/>
+                <span style={{ fontSize:11, fontWeight:700, color: filterOp===op?'#4f46e5':muted, transition:'color 0.15s' }}>{op}</span>
+                <span style={{ marginLeft:'auto', fontSize:10, background: dark?'#334155':'#f1f5f9', color:muted, padding:'1px 5px', borderRadius:4, fontWeight:700 }}>
+                  {processed.filter(d=>d.Operator===op).length}
+                </span>
+              </div>
+            ))}
+          </div>
+          {/* Bottom info */}
+          <div style={{ marginTop:'auto', padding:'12px 10px' }}>
+            <div style={{ background:'linear-gradient(135deg,#4f46e5,#7c3aed)', borderRadius:12, padding:'12px', color:'#fff' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
+                {isAdmin ? <I.shield s={13}/> : <I.users s={13}/>}<span style={{ fontSize:10, fontWeight:900, textTransform:'uppercase', letterSpacing:'0.05em' }}>{isAdmin ? 'Administrator' : 'Petugas Monitoring'}</span>
+              </div>
+              <div style={{ fontSize:10, opacity:0.85, lineHeight:1.5, fontWeight:600 }}>
+              {currentUser?.name}<br/>{total} Pegawai
+              </div>
+              <div style={{ marginTop:8, height:4, background:'rgba(255,255,255,0.2)', borderRadius:99, overflow:'hidden' }}>
+                <div style={{ height:'100%', width:`${pct(done)}%`, background:'#a5f3fc', borderRadius:99 }}/>
+              </div>
+              <div style={{ fontSize:9, opacity:0.8, marginTop:4, fontWeight:700 }}>{done}/{total} Selesai ({pct(done)}%)</div>
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {/* MAIN */}
+      <main style={{ flex:1, overflow:'auto', minWidth:0 }}>
+        {/* Header */}
+        <div style={{ position:'sticky', top:0, zIndex:10, background:card, borderBottom:`1px solid ${border}`, padding:'10px 20px', display:'flex', alignItems:'center', gap:12 }}>
+          <button onClick={()=>setSidebar(!sidebar)} style={{ padding:7, borderRadius:8, border:`1px solid ${border}`, background:'transparent', cursor:'pointer', color:'#4f46e5', display:'flex', alignItems:'center' }}>
+            {sidebar?<I.chevL s={16}/>:<I.menu s={16}/>}
+          </button>
+          <div style={{ flex:1 }}>
+            <h1 style={{ fontSize:16, fontWeight:900, margin:0, letterSpacing:'-0.03em', display:'flex', alignItems:'center', gap:8 }}>
+              <span style={{ color:'#4f46e5' }}>Data Pensiun 2026</span>
+              </h1>
+            <p style={{ fontSize:10, color:muted, fontWeight:600, margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>Monitoring Data · Kota Ternate</p>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 8px', borderRadius:8, border:`1px solid ${border}`, background:'transparent' }}>
+            <div style={{ width:24, height:24, borderRadius:99, background: isAdmin ? '#4f46e5' : '#10b981', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              {isAdmin ? <I.shield s={12} st={{ color:'#fff' }}/> : <I.users s={12} st={{ color:'#fff' }}/>}
+            </div>
+            <div style={{ textAlign:'left' }}>
+              <p style={{ fontSize:10, fontWeight:700, color:text, margin:0 }}>{currentUser?.name}</p>
+              <p style={{ fontSize:8, fontWeight:600, color: isAdmin ? '#818cf8' : '#34d399', margin:0 }}>{isAdmin ? 'Admin' : 'Petugas'}</p>
+            </div>
+          </div>
+          <button onClick={handleLogout} style={{ padding:7, borderRadius:8, border:`1px solid ${border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', color:'#94a3b8' }}>
+            <I.logout s={16}/>
+          </button>
+          <button onClick={()=>setDark(!dark)} style={{ padding:7, borderRadius:8, border:`1px solid ${border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', color:dark?'#fbbf24':'#4f46e5' }}>
+            {dark?<I.sun s={16}/>:<I.moon s={16}/>}
+          </button>
+        </div>
+
+        <div style={{ padding:'16px 20px' }}>
+
+          {/* ══ DASHBOARD TAB ══ */}
+          {tab==='dashboard' && (
+            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+
+              {/* Top stat cards */}
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', gap:10 }}>
+                <StatCard label="Total Database" value={total} icon={<I.users s={18}/>} accent="#4f46e5" sub={`${total} Pegawai`}/>
+                <StatCard label="BUP" value={bupCount} icon={<I.users s={18}/>} accent="#2563eb" sub={`Batas Usia Pensiun`}/>
+                <StatCard label="MD" value={processed.filter(d=>(d.StatusPensiun||'BUP')==='MD').length} icon={<I.users s={18}/>} accent="#dc2626" sub={`Meninggal Dunia`}/>
+                <StatCard label="APS" value={processed.filter(d=>(d.StatusPensiun||'BUP')==='APS').length} icon={<I.users s={18}/>} accent="#d97706" sub={`Pensiun Dini`}/>
+                <StatCard label="Berkas Selesai" value={done} icon={<I.check2 s={18}/>} accent="#16a34a" sub={`${pct(done)}%`}/>
+                <StatCard label="Belum Selesai" value={total-done} icon={<I.clock s={18}/>} accent="#d97706" sub={`${pct(total-done)}%`}/>
+                <StatCard label="Sangat Urgent" value={urgent} icon={<I.alert s={18}/>} accent="#dc2626" sub="TMT < 3 bln"/>
+                <StatCard label="Lewat TMT" value={expired} icon={<I.xmark s={18}/>} accent="#64748b" sub="Perlu koordinasi segera"/>
+              </div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                {/* Operator performance */}
+                <div style={{ background:card, border:`1px solid ${border}`, borderRadius:14, padding:'16px 18px' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:14 }}>
+                    <I.person s={14} st={{ color:'#4f46e5' }}/>
+                    <h3 style={{ fontSize:13, fontWeight:800, margin:0 }}>Progress per Operator</h3>
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                    {opStats.map(({op, total:t, done:d, pct:p}) => (
+                      <div key={op}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                            <div style={{ width:10, height:10, borderRadius:99, background:OP_COLORS[op] }}/>
+                            <span style={{ fontSize:12, fontWeight:700, color:text }}>{op}</span>
+                          </div>
+                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                            <span style={{ fontSize:11, color:muted, fontWeight:600 }}>{d}/{t}</span>
+                            <span style={{ fontSize:11, fontWeight:800, color:OP_COLORS[op] }}>{p}%</span>
+                          </div>
+                        </div>
+                        <Bar pct={p} color={OP_COLORS[op]}/>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Monthly distribution */}
+                <div style={{ background:card, border:`1px solid ${border}`, borderRadius:14, padding:'16px 18px' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:14 }}>
+                    <I.calendar s={14} st={{ color:'#4f46e5' }}/>
+                    <h3 style={{ fontSize:13, fontWeight:800, margin:0 }}>Distribusi per Bulan TMT</h3>
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+                    {monthStats.map(({m, label, count, done:d}) => (
+                      <div key={m} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <span style={{ fontSize:11, fontWeight:700, color:muted, width:28, flexShrink:0 }}>{label}</span>
+                        <div style={{ flex:1, display:'flex', alignItems:'center', gap:6 }}>
+                          <div style={{ height:14, display:'flex', borderRadius:4, overflow:'hidden', gap:1, flex:1 }}>
+                            <div style={{ background:'#4ade80', width:`${Math.round((d/count)*100)}%`, minWidth:d>0?4:0 }}/>
+                            <div style={{ background:'#c7d2fe', flex:1 }}/>
+                          </div>
+                          <span style={{ fontSize:10, fontWeight:700, color:muted, width:20, textAlign:'right', flexShrink:0 }}>{count}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{ display:'flex', alignItems:'center', gap:12, marginTop:4, paddingTop:10, borderTop:`1px solid ${border}` }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:4 }}><div style={{ width:10,height:10,background:'#4ade80',borderRadius:2 }}/><span style={{ fontSize:10, color:muted, fontWeight:600 }}>Selesai</span></div>
+                      <div style={{ display:'flex', alignItems:'center', gap:4 }}><div style={{ width:10,height:10,background:'#c7d2fe',borderRadius:2 }}/><span style={{ fontSize:10, color:muted, fontWeight:600 }}>Belum</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Urgency breakdown */}
+              <div style={{ background:card, border:`1px solid ${border}`, borderRadius:14, padding:'16px 18px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:14 }}>
+                  <I.bar s={14} st={{ color:'#4f46e5' }}/>
+                  <h3 style={{ fontSize:13, fontWeight:800, margin:0 }}>Distribusi Urgensi</h3>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:8 }}>
+                  {[
+                    { key:'done',         label:'Selesai',       accent:'#16a34a', bg:'#f0fdf4' },
+                    { key:'menunggu',     label:'Menunggu',      accent:'#4338ca', bg:'#eef2ff' },
+                    { key:'segera',       label:'Segera',        accent:'#d97706', bg:'#fffbeb' },
+                    { key:'sangat-segera',label:'Sangat Segera', accent:'#dc2626', bg:'#fef2f2' },
+                    { key:'expired',      label:'Lewat TMT',     accent:'#475569', bg:'#f8fafc' },
+                  ].map(({key, label, accent, bg:ubg}) => {
+                    const n = processed.filter(d => key==='done' ? d.Status==='Done' : d.urgency===key && d.Status!=='Done').length;
+                    return (
+                      <div key={key} style={{ background:ubg, borderRadius:10, padding:'12px', textAlign:'center', border:`1px solid ${accent}22` }}>
+                        <p style={{ fontSize:22, fontWeight:900, color:accent, margin:0, lineHeight:1 }}>{n}</p>
+                        <p style={{ fontSize:10, color:accent, fontWeight:700, margin:'4px 0 0', opacity:0.8 }}>{label}</p>
+                        <p style={{ fontSize:10, color:accent, opacity:0.6, margin:'2px 0 0', fontWeight:600 }}>{pct(n)}%</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Operator detail table */}
+              <div style={{ background:card, border:`1px solid ${border}`, borderRadius:14, padding:'16px 18px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:12 }}>
+                  <I.users s={14} st={{ color:'#4f46e5' }}/>
+                  <h3 style={{ fontSize:13, fontWeight:800, margin:0 }}>Rekapitulasi per Operator</h3>
+                </div>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                  <thead>
+                    <tr style={{ background:dark?'#0f172a':'#f8fafc' }}>
+                      {['Operator','Total','Selesai','Belum','Sangat Urgent','Progress'].map((h,i) => (
+                        <th key={i} style={{ padding:'8px 12px', fontWeight:700, color:muted, textAlign:i===0?'left':'center', fontSize:11, textTransform:'uppercase', letterSpacing:'0.05em', borderBottom:`1px solid ${border}` }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {opStats.map(({op, total:t, done:d}) => {
+                      const urgN = processed.filter(x=>x.Operator===op&&x.urgency==='sangat-segera'&&x.Status!=='Done').length;
+                      const p2 = t?Math.round((d/t)*100):0;
+                      return (
+                        <tr key={op} style={{ borderBottom:`1px solid ${border}` }}>
+                          <td style={{ padding:'9px 12px' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                              <div style={{ width:8,height:8,background:OP_COLORS[op],borderRadius:99,flexShrink:0 }}/>
+                              <span style={{ fontWeight:700 }}>{op}</span>
+                            </div>
+                          </td>
+                          <td style={{ textAlign:'center', fontWeight:700, padding:'9px 12px' }}>{t}</td>
+                          <td style={{ textAlign:'center', padding:'9px 12px' }}><span style={{ background:'#f0fdf4', color:'#16a34a', padding:'2px 8px', borderRadius:5, fontWeight:700, fontSize:11 }}>{d}</span></td>
+                          <td style={{ textAlign:'center', padding:'9px 12px' }}><span style={{ background:'#fffbeb', color:'#d97706', padding:'2px 8px', borderRadius:5, fontWeight:700, fontSize:11 }}>{t-d}</span></td>
+                          <td style={{ textAlign:'center', padding:'9px 12px' }}><span style={{ background: urgN>0?'#fef2f2':'#f0fdf4', color:urgN>0?'#dc2626':'#94a3b8', padding:'2px 8px', borderRadius:5, fontWeight:700, fontSize:11 }}>{urgN}</span></td>
+                          <td style={{ padding:'9px 12px' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                              <Bar pct={p2} color={OP_COLORS[op]}/>
+                              <span style={{ fontSize:11, fontWeight:800, color:OP_COLORS[op], width:32, textAlign:'right' }}>{p2}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ══ MONITORING TAB ══ */}
+          {tab==='monitoring' && (
+            <div>
+              {/* Filter bar */}
+              <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:'10px 14px', marginBottom:12, display:'flex', flexWrap:'wrap', gap:8, alignItems:'center' }}>
+                <div style={{ position:'relative', flex:'1 1 200px', minWidth:160 }}>
+                  <span style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:muted, display:'flex', pointerEvents:'none' }}><I.search s={14}/></span>
+                  <input type="text" placeholder="Cari nama atau operator…" value={q} onChange={e=>setQ(e.target.value)}
+                    style={{ ...selStyle, paddingLeft:30, width:'100%' }} />
+                </div>
+                <select value={filterOp} onChange={e=>setFilterOp(e.target.value)} style={selStyle}>
+                  <option value="">Total Semua</option>
+                  {OPERATORS.map(op=><option key={op} value={op}>{op}</option>)}
+                </select>
+                <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)} style={selStyle}>
+                  <option value="">Semua Bulan TMT</option>
+                  {Array.from({length:12},(_,i)=><option key={i+1} value={i+1}>{MONTHS[i+1]}</option>)}
+                </select>
+                <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} style={selStyle}>
+                   <option value="all">Semua Jenis ({total})</option>
+                   <option value="BUP">BUP ({bupCount})</option>
+                   <option value="MD">MD ({processed.filter(d=>(d.StatusPensiun||'BUP')==='MD').length})</option>
+                   <option value="APS">APS ({processed.filter(d=>(d.StatusPensiun||'BUP')==='APS').length})</option>
+                 </select>
+
+                {(q||filterOp||filterMonth||statusFilter!=='all') && (
+                  <button onClick={()=>{setQ('');setFilterOp('');setFilterMonth('');setStatusFilter('all');}} style={{ padding:'7px 12px', borderRadius:8, border:`1px solid ${border}`, background:'transparent', cursor:'pointer', color:'#dc2626', fontSize:11, fontWeight:700, display:'flex', alignItems:'center', gap:4 }}>
+                    <I.xmark s={12}/> Reset
+                  </button>
+                )}
+                <button onClick={()=>{
+                  try {
+                    // Export to Excel
+                    const wsData = [
+                      ['No', 'Nama', 'NIP', 'Pangkat', 'Jabatan', 'Unit Kerja', 'TMT', 'Status Pensiun', 'Status Monitoring', 'Urgensi', 'Nomor HP']
+                    ];
+                    filtered.forEach((p, idx) => {
+                      wsData.push([
+                        idx + 1,
+                        p.Nama,
+                        p.NIP || '',
+                        p.Pangkat,
+                        p.Jabatan,
+                        p.Unit,
+                        p.TMT,
+                        p.StatusPensiun || 'BUP',
+                        p.Status === 'Done' ? 'Selesai' : 'Pending',
+                        p.urgencyLabel,
+                        phoneNumbers[p.id] || ''
+                      ]);
+                    });
+                    const ws = XLSX.utils.aoa_to_sheet(wsData);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Data Pensiun');
+                    XLSX.writeFile(wb, `sipensi_monitoring_${new Date().toISOString().split('T')[0]}.xlsx`);
+                  } catch (err) {
+                    alert('Gagal mengekspor Excel: ' + err.message);
+                  }
+                }} style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'#7c3aed', cursor:'pointer', color:'#fff', fontSize:11, fontWeight:700, display:'flex', alignItems:'center', gap:4 }}>
+                  <I.clip s={12}/> Excel
+                </button>
+                <button onClick={()=>{
+                  try {
+                    // Export to PDF
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    const tableData = filtered.map((p, idx) => [
+                      idx + 1,
+                      p.Nama,
+                      p.Pangkat,
+                      p.Jabatan.substring(0, 25) + (p.Jabatan.length > 25 ? '...' : ''),
+                      p.Unit.substring(0, 20) + (p.Unit.length > 20 ? '...' : ''),
+                      p.TMT,
+                      'BUP',
+                      p.Status === 'Done' ? 'Selesai' : 'Pending',
+                      p.urgencyLabel,
+                      phoneNumbers[p.id] || '-'
+                    ]);
+                    doc.autoTable({
+                      head: [['No', 'Nama', 'Pangkat', 'Jabatan', 'Unit', 'TMT', 'Jenis', 'Status', 'Urgensi', 'No. HP']],
+                      body: tableData,
+                      startY: 20,
+                      styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak' },
+                      headStyles: { fillColor: [79, 70, 229] },
+                      columnStyles: {
+                        0: { cellWidth: 8 },
+                        1: { cellWidth: 35 },
+                        2: { cellWidth: 12 },
+                        3: { cellWidth: 30 },
+                        4: { cellWidth: 25 },
+                        5: { cellWidth: 15 },
+                        6: { cellWidth: 10 },
+                        7: { cellWidth: 12 },
+                        8: { cellWidth: 18 },
+                        9: { cellWidth: 20 }
+                      }
+                    });
+                    doc.text('Data Pensiun Kota Ternate 2026', 14, 15);
+                    doc.save(`sipensi_monitoring_${new Date().toISOString().split('T')[0]}.pdf`);
+                  } catch (err) {
+                    alert('Gagal mengekspor PDF: ' + err.message);
+                  }
+                }} style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'#dc2626', cursor:'pointer', color:'#fff', fontSize:11, fontWeight:700, display:'flex', alignItems:'center', gap:4 }}>
+                  <I.clip s={12}/> PDF
+                </button>
+                <span style={{ fontSize:11, color:muted, fontWeight:600, marginLeft:'auto' }}>
+                  {filtered.length} dari {total} pegawai
+                </span>
+              </div>
+
+              {/* Table */}
+              <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, overflow:'hidden' }}>
+                <div style={{ overflowX:'auto' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                    <thead style={{ background:dark?'#0f172a':'#f8fafc', position:'sticky', top:0, zIndex:1 }}>
+                      <tr>
+                        {['No','Nama / Jabatan','NIP','Status','Unit / TMT','Nomor HP','Operator','Urgensi','Keterangan','✓'].map((h,i)=>(
+                          <th key={i} style={{ padding:'10px 12px', fontWeight:700, color:muted, textAlign:i===0||i>=5?'center':'left', fontSize:10, textTransform:'uppercase', letterSpacing:'0.05em', whiteSpace:'nowrap', borderBottom:`1px solid ${border}`, minWidth: i===2 ? '150px' : 'auto' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedData.map((p, idx) => (
+                        <tr key={p.id} style={{ borderBottom:`1px solid ${border}`, background: p.Status==='Done'?(dark?'rgba(16,185,129,0.05)':'#f0fdf4'):'transparent', transition:'background 0.15s' }}
+                          onMouseEnter={e=>{ if(p.Status!=='Done') e.currentTarget.style.background=dark?'rgba(99,102,241,0.05)':'#f8f8ff'; }}
+                          onMouseLeave={e=>{ e.currentTarget.style.background=p.Status==='Done'?(dark?'rgba(16,185,129,0.05)':'#f0fdf4'):'transparent'; }}>
+
+                          <td style={{ padding:'8px 12px', textAlign:'center', fontWeight:700, color:muted, fontSize:11 }}>{(currentPage - 1) * itemsPerPage + idx + 1}</td>
+
+                          <td style={{ padding:'8px 12px', maxWidth:200 }}>
+                            <p style={{ margin:0, fontWeight:700, fontSize:12, color:'#4f46e5', lineHeight:1.3 }}>{p.Nama}</p>
+                            <p style={{ margin:'2px 0 0', fontSize:10, color:muted, fontWeight:600 }}>{p.Pangkat} · {p.Jabatan}</p>
+                          </td>
+
+                          <td style={{ padding:'8px 12px', textAlign:'center', whiteSpace:'nowrap' }}>
+                            <span style={{ fontFamily:'monospace', fontSize:11, fontWeight:600, color:text }}>{p.NIP || '-'}</span>
+                          </td>
+
+                          <td style={{ padding:'8px 12px', textAlign:'center' }}>
+                            <span style={{
+                              padding:'3px 8px', borderRadius:99, fontSize:10, fontWeight:800,
+                              background: '#eff6ff',
+                              color: '#2563eb'
+                            }}>
+                              Batas Usia Pensiun
+                            </span>
+                          </td>
+
+                          <td style={{ padding:'8px 12px', maxWidth:180 }}>
+                            <p style={{ margin:0, fontSize:11, fontWeight:700, color:text, lineHeight:1.3 }}>{p.Unit}</p>
+                            <p style={{ margin:'2px 0 0', fontSize:10, color:'#6366f1', fontWeight:700, display:'flex', alignItems:'center', gap:3 }}>
+                              <I.clock s={10}/> {p.TMT}
+                            </p>
+                          </td>
+
+                          <td style={{ padding:'8px 12px', textAlign:'center' }}>
+                            <input
+                              type="tel"
+                              placeholder="No. HP"
+                              value={phoneNumbers[p.id] || ''}
+                              onChange={(e) => setPhoneNumbers(prev => ({...prev, [p.id]: e.target.value.replace(/[^0-9+\s-]/g, '')}))}
+                              style={{
+                                width:100,
+                                padding:'4px 8px',
+                                borderRadius:6,
+                                border:`1px solid ${border}`,
+                                background:inp,
+                                color:text,
+                                fontSize:10,
+                                fontWeight:600,
+                                textAlign:'center',
+                                outline:'none'
+                              }}
+                            />
+                          </td>
+
+                          <td style={{ padding:'8px 12px', textAlign:'center' }}>
+                            <span style={{ background:OP_BG[p.Operator]||'#f8fafc', color:OP_COLORS[p.Operator]||'#64748b', border:`1px solid ${OP_COLORS[p.Operator]}33`, padding:'3px 8px', borderRadius:6, fontSize:10, fontWeight:800, whiteSpace:'nowrap', display:'inline-block' }}>
+                              {p.Operator}
+                            </span>
+                          </td>
+
+                          <td style={{ padding:'8px 12px', textAlign:'center' }}>
+                            <Badge type={p.urgency} label={p.urgencyLabel}/>
+                          </td>
+
+                          <td style={{ padding:'8px 12px', maxWidth:220 }}>
+                            <p style={{ margin:0, fontSize:10, color:p.Status==='Done'?'#16a34a':muted, fontWeight:600, lineHeight:1.4 }}>{p.keterangan}</p>
+                          </td>
+
+                          <td style={{ padding:'8px 12px', textAlign:'center' }}>
+                            <button onClick={()=>toggle(p.id)} title={p.Status==='Done'?'Tandai Pending':'Tandai Selesai'}
+                              style={{ padding:6, borderRadius:8, border:'none', cursor: isAdmin ? 'pointer' : 'not-allowed', background:p.Status==='Done'?'#16a34a':'transparent', color:p.Status==='Done'?'#fff':muted, display:'flex', alignItems:'center', boxShadow:p.Status==='Done'?'0 2px 8px rgba(22,163,74,0.3)':'none', borderWidth:1, borderStyle:'solid', borderColor:p.Status==='Done'?'#16a34a':border, opacity: isAdmin ? 1 : 0.5 }}>
+                              <I.clip s={15}/>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {filtered.length===0 && (
+                        <tr><td colSpan={10} style={{ padding:'32px', textAlign:'center', color:muted, fontWeight:600 }}>Tidak ada data yang sesuai filter</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:8, marginTop:16, padding:'12px', background:card, border:`1px solid ${border}`, borderRadius:12 }}>
+                  <button
+                    onClick={()=>setCurrentPage(p=>Math.max(1,p-1))}
+                    disabled={currentPage===1}
+                    style={{ padding:'6px 12px', borderRadius:8, border:`1px solid ${border}`, background:currentPage===1?'transparent':(dark?'#1e293b':'#fff'), color:currentPage===1?muted:text, cursor:currentPage===1?'not-allowed':'pointer', fontSize:12, fontWeight:700, display:'flex', alignItems:'center', gap:4, opacity:currentPage===1?0.5:1 }}
+                  >
+                    ← Prev
+                  </button>
+                  <span style={{ fontSize:12, fontWeight:700, color:muted, padding:'0 8px' }}>
+                    Halaman {currentPage} dari {totalPages}
+                  </span>
+                  <button
+                    onClick={()=>setCurrentPage(p=>Math.min(totalPages,p+1))}
+                    disabled={currentPage===totalPages}
+                    style={{ padding:'6px 12px', borderRadius:8, border:`1px solid ${border}`, background:currentPage===totalPages?'transparent':(dark?'#1e293b':'#fff'), color:currentPage===totalPages?muted:text, cursor:currentPage===totalPages?'not-allowed':'pointer', fontSize:12, fontWeight:700, display:'flex', alignItems:'center', gap:4, opacity:currentPage===totalPages?0.5:1 }}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div style={{ textAlign:'center', padding:'20px', marginTop:8, color:muted, fontSize:11, fontWeight:600 }}>
+                Created by Dika Haryanto 2026
+              </div>
+            </div>
+          )}
+
+          {/* ══ TAMBAH PEGAWAI TAB ══ */}
+          {tab==='tambah-pegawai' && (
+            <div>
+              <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:'16px 18px', marginBottom:16 }}>
+                <h2 style={{ fontSize:16, fontWeight:800, margin:'0 0 8px', color:text }}>
+                  <span style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <I.person s={20} st={{ color:'#4f46e5' }}/>
+                    Tambah Pegawai Baru (MD/APS)
+                  </span>
+                </h2>
+                <p style={{ fontSize:12, color:muted, margin:0 }}>
+                  Tambahkan data pegawai yang Meninggal Dunia (MD) atau Pensiun Dini (APS)
+                </p>
+              </div>
+
+              {/* Form Tambah Pegawai */}
+              <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:'20px 24px' }}>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  const newPegawai = {
+                    id: Math.max(...data.map(d => d.id)) + 1,
+                    Nama: formData.get('nama'),
+                    NIP: formData.get('nip'),
+                    Pangkat: formData.get('pangkat'),
+                    Jabatan: formData.get('jabatan'),
+                    TMT: formData.get('tmt'),
+                    Unit: formData.get('unit'),
+                    Operator: formData.get('operator'),
+                    StatusPensiun: formData.get('statusPensiun'),
+                    Status: 'Pending',
+                    urgency: 'menunggu',
+                    urgencyLabel: 'Menunggu',
+                    keterangan: 'Data baru ditambahkan'
+                  };
+                  setData([...data, newPegawai]);
+                  alert(`Pegawai ${newPegawai.Nama} berhasil ditambahkan dengan status ${newPegawai.StatusPensiun}!`);
+                  e.target.reset();
+                }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(250px, 1fr))', gap:16 }}>
+                    <div>
+                      <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Nama Lengkap *</label>
+                      <input name="nama" type="text" required style={{ ...selStyle, width:'100%' }} placeholder="Masukkan nama lengkap" />
+                    </div>
+                    <div>
+                      <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>NIP</label>
+                      <input name="nip" type="text" style={{ ...selStyle, width:'100%' }} placeholder="Masukkan NIP" />
+                    </div>
+                    <div>
+                      <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Pangkat</label>
+                      <input name="pangkat" type="text" style={{ ...selStyle, width:'100%' }} placeholder="Masukkan pangkat" />
+                    </div>
+                    <div>
+                      <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Jabatan</label>
+                      <input name="jabatan" type="text" style={{ ...selStyle, width:'100%' }} placeholder="Masukkan jabatan" />
+                    </div>
+                    <div>
+                      <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Unit Kerja</label>
+                      <input name="unit" type="text" style={{ ...selStyle, width:'100%' }} placeholder="Masukkan unit kerja" />
+                    </div>
+                    <div>
+                      <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>TMT</label>
+                      <input name="tmt" type="date" style={{ ...selStyle, width:'100%' }} />
+                    </div>
+                    <div>
+                      <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Operator</label>
+                      <select name="operator" style={{ ...selStyle, width:'100%' }}>
+                        {OPERATORS.map(op => <option key={op} value={op}>{op}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Status Pensiun *</label>
+                      <select name="statusPensiun" required style={{ ...selStyle, width:'100%' }}>
+                        <option value="MD">MD (Meninggal Dunia)</option>
+                        <option value="APS">APS (Pensiun Dini)</option>
+                        <option value="BUP">BUP (Batas Usia Pensiun)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ marginTop:20, display:'flex', gap:12 }}>
+                    <button type="submit" style={{ padding:'10px 24px', borderRadius:8, border:'none', background:'#4f46e5', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
+                      <I.check2 s={14}/> Simpan Pegawai
+                    </button>
+                    <button type="reset" style={{ padding:'10px 24px', borderRadius:8, border:`1px solid ${border}`, background:'transparent', color:muted, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                      Reset Form
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Info Box */}
+              <div style={{ marginTop:16, background:'#fef3c7', border:'1px solid #fcd34d', borderRadius:12, padding:'16px 18px' }}>
+                <h3 style={{ fontSize:13, fontWeight:800, margin:'0 0 8px', color:'#92400e' }}>
+                  <span style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <I.alert s={14}/> Informasi Penting
+                  </span>
+                </h3>
+                <ul style={{ fontSize:12, color:'#92400e', margin:0, paddingLeft:20 }}>
+                  <li style={{ marginBottom:4 }}>Pastikan data yang dimasukkan sudah benar sebelum menyimpan</li>
+                  <li style={{ marginBottom:4 }}>Status MD untuk pegawai yang Meninggal Dunia</li>
+                  <li style={{ marginBottom:4 }}>Status APS untuk pegawai yang Pensiun Dini</li>
+                  <li>Data yang ditambahkan akan muncul di Database Pegawai dan Statistik</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* ══ PENSIONIR PER BULAN TAB ══ */}
+          {tab==='pensiunan-bulan' && (
+            <div>
+              <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:'16px 18px', marginBottom:16 }}>
+                <h2 style={{ fontSize:16, fontWeight:800, margin:'0 0 8px', color:text }}>
+                  <span style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <I.calendar s={20} st={{ color:'#4f46e5' }}/>
+                    Daftar Pensiunan Berdasarkan Bulan TMT
+                  </span>
+                </h2>
+                <p style={{ fontSize:12, color:muted, margin:0 }}>
+                  Pilih bulan untuk melihat nama-nama pensiunan berdasarkan Tanggal Mulai Tugas (TMT) pensiun
+                </p>
+              </div>
+
+              {/* Month Selection */}
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))', gap:8, marginBottom:16 }}>
+                {Array.from({length:12},(_,i)=>{
+                  const m = i + 1;
+                  const count = processed.filter(p => parseInt(p.TMT.substring(5,7)) === m).length;
+                  return (
+                    <button key={m} onClick={()=>setFilterMonth(filterMonth===m?'':m)} 
+                      style={{ 
+                        padding:'12px 16px', 
+                        borderRadius:10, 
+                        border:`2px solid ${filterMonth===m?'#4f46e5':border}`, 
+                        background: filterMonth===m ? '#eef2ff' : card,
+                        cursor:'pointer',
+                        textAlign:'center',
+                        transition:'all 0.15s'
+                      }}>
+                      <div style={{ fontSize:18, fontWeight:900, color: filterMonth===m?'#4f46e5':text }}>{MONTHS[m]}</div>
+                      <div style={{ fontSize:11, color:muted, fontWeight:600 }}>{count} orang</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Selected Month Data */}
+              {filterMonth ? (
+                <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, overflow:'hidden' }}>
+                  <div style={{ padding:'12px 16px', borderBottom:`1px solid ${border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <h3 style={{ fontSize:14, fontWeight:800, margin:0, color:text }}>
+                      Pensiunan Bulan {MONTHS[parseInt(filterMonth)]} 2026
+                    </h3>
+                    <span style={{ fontSize:12, color:muted, fontWeight:600 }}>
+                      {processed.filter(p => parseInt(p.TMT.substring(5,7)) === parseInt(filterMonth)).length} orang
+                    </span>
+                  </div>
+                  
+                  <div style={{ overflowX:'auto' }}>
+                    <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                      <thead style={{ background:dark?'#0f172a':'#f8fafc' }}>
+                        <tr>
+                          {['No','Nama','NIP','Pangkat','Jabatan','Unit Kerja','Status','No. HP'].map((h,i)=>(
+                            <th key={i} style={{ padding:'10px 12px', fontWeight:700, color:muted, textAlign:i===0?'center':'left', fontSize:10, textTransform:'uppercase', letterSpacing:'0.05em', borderBottom:`1px solid ${border}`, minWidth: i===2 ? '150px' : 'auto' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {processed
+                          .filter(p => parseInt(p.TMT.substring(5,7)) === parseInt(filterMonth))
+                          .sort((a,b) => a.TMT.localeCompare(b.TMT))
+                          .map((p, idx) => (
+                          <tr key={p.id} style={{ borderBottom:`1px solid ${border}` }}>
+                            <td style={{ padding:'8px 12px', textAlign:'center', fontWeight:700, color:muted }}>{idx + 1}</td>
+                            <td style={{ padding:'8px 12px', fontWeight:700, color:'#4f46e5' }}>{p.Nama}</td>
+                            <td style={{ padding:'8px 12px', fontFamily:'monospace', fontSize:11, whiteSpace:'nowrap' }}>{p.NIP || '-'}</td>
+                            <td style={{ padding:'8px 12px' }}>{p.Pangkat}</td>
+                            <td style={{ padding:'8px 12px', maxWidth:180 }}>{p.Jabatan}</td>
+                            <td style={{ padding:'8px 12px', maxWidth:160 }}>{p.Unit}</td>
+                            <td style={{ padding:'8px 12px' }}>
+                              <span style={{ padding:'2px 6px', borderRadius:4, fontSize:10, fontWeight:700, background: '#eff6ff', color: '#2563eb' }}>
+                                BUP
+                              </span>
+                            </td>
+                            <td style={{ padding:'8px 12px' }}>
+                              <input
+                                type="tel"
+                                placeholder="No. HP"
+                                value={phoneNumbers[p.id] || ''}
+                                onChange={(e) => setPhoneNumbers(prev => ({...prev, [p.id]: e.target.value.replace(/[^0-9+\s-]/g, '')}))}
+                                style={{
+                                  width:100,
+                                  padding:'4px 8px',
+                                  borderRadius:6,
+                                  border:`1px solid ${border}`,
+                                  background:inp,
+                                  color:text,
+                                  fontSize:10,
+                                  fontWeight:600,
+                                  textAlign:'center',
+                                  outline:'none'
+                                }}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Export buttons for this month */}
+                  <div style={{ padding:'12px 16px', borderTop:`1px solid ${border}`, display:'flex', gap:8, flexWrap:'wrap' }}>
+                    <button onClick={()=>{
+                      try {
+                        const monthData = processed.filter(p => parseInt(p.TMT.substring(5,7)) === parseInt(filterMonth));
+                        const wsData = [['No', 'Nama', 'NIP', 'Pangkat', 'Jabatan', 'Unit Kerja', 'TMT', 'Status Pensiun', 'Nomor HP']];
+                        monthData.sort((a,b) => a.TMT.localeCompare(b.TMT)).forEach((p, idx) => {
+                          wsData.push([idx + 1, p.Nama, p.NIP || '', p.Pangkat, p.Jabatan, p.Unit, p.TMT, 'BUP', phoneNumbers[p.id] || '']);
+                        });
+                        const ws = XLSX.utils.aoa_to_sheet(wsData);
+                        const wb = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(wb, ws, 'Pensiunan');
+                        XLSX.writeFile(wb, `pensiunan_${MONTHS[parseInt(filterMonth)]}_2026.xlsx`);
+                      } catch (err) { alert('Gagal mengekspor Excel: ' + err.message); }
+                    }} style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'#7c3aed', cursor:'pointer', color:'#fff', fontSize:11, fontWeight:700, display:'flex', alignItems:'center', gap:4 }}>
+                      <I.clip s={12}/> Export Excel
+                    </button>
+                    <button onClick={()=>{
+                      try {
+                        const { jsPDF } = window.jspdf;
+                        const doc = new jsPDF();
+                        const monthData = processed.filter(p => parseInt(p.TMT.substring(5,7)) === parseInt(filterMonth)).sort((a,b) => a.TMT.localeCompare(b.TMT));
+                        const tableData = monthData.map((p, idx) => [
+                          idx + 1,
+                          p.Nama,
+                          p.NIP || '-',
+                          p.Pangkat,
+                          p.Jabatan.substring(0, 25),
+                          p.Unit.substring(0, 20),
+                          p.TMT,
+                          'BUP',
+                          phoneNumbers[p.id] || '-'
+                        ]);
+                        doc.autoTable({
+                          head: [['No', 'Nama', 'NIP', 'Pangkat', 'Jabatan', 'Unit', 'TMT', 'Jenis', 'No. HP']],
+                          body: tableData,
+                          startY: 20,
+                          styles: { fontSize: 8, cellPadding: 2 },
+                          headStyles: { fillColor: [124, 58, 237] },
+                          columnStyles: {
+                            0: { cellWidth: 10 },
+                            1: { cellWidth: 40 },
+                            2: { cellWidth: 25 },
+                            3: { cellWidth: 15 },
+                            4: { cellWidth: 35 },
+                            5: { cellWidth: 25 },
+                            6: { cellWidth: 18 },
+                            7: { cellWidth: 12 },
+                            8: { cellWidth: 25 }
+                          }
+                        });
+                        doc.text(`Daftar Pensiunan Bulan ${MONTHS[parseInt(filterMonth)]} 2026`, 14, 15);
+                        doc.save(`pensiunan_${MONTHS[parseInt(filterMonth)]}_2026.pdf`);
+                      } catch (err) { alert('Gagal mengekspor PDF: ' + err.message); }
+                    }} style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'#dc2626', cursor:'pointer', color:'#fff', fontSize:11, fontWeight:700, display:'flex', alignItems:'center', gap:4 }}>
+                      <I.clip s={12}/> Export PDF
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:'40px', textAlign:'center' }}>
+                  <I.calendar s={48} st={{ color:muted, margin:'0 auto 16px', display:'block', opacity:0.5 }}/>
+                  <p style={{ fontSize:14, color:muted, fontWeight:600, margin:0 }}>
+                    Klik salah satu bulan di atas untuk melihat daftar pensiunan
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
