@@ -185,8 +185,46 @@ const getStatusDetail = (pns) => {
 
 /* ─── Auth ─── */
 const USERS = {
-  admin: { password: 'admin123', role: 'admin', name: 'Administrator' },
-  user: { password: 'user123', role: 'user', name: 'Petugas Monitoring' }
+  superadmin: { password: 'superadmin123', role: 'superadmin', name: 'Super Administrator' },
+  // Operator accounts - login with last name + 123
+  ira: { password: 'Ira123', role: 'operator', name: 'Ira' },
+  nami: { password: 'nami123', role: 'operator', name: 'Nami' },
+  rais: { password: 'rais123', role: 'operator', name: 'Rais' },
+  dika: { password: 'dika123', role: 'operator', name: 'Dika' },
+  kabid: { password: 'kabid123', role: 'operator', name: 'Kabid' },
+  // User accounts - login with NIP as password
+  '198501012010011001': { password: '198501012010011001', role: 'user', name: 'User Monitoring' },
+  '198602022010012002': { password: '198602022010012002', role: 'user', name: 'User Monitoring 2' }
+};
+
+// Access log storage
+const getAccessLogs = () => {
+  try {
+    const logs = localStorage.getItem('accessLogs');
+    return logs ? JSON.parse(logs) : [];
+  } catch {
+    return [];
+  }
+};
+
+const addAccessLog = (username, action, details = '') => {
+  try {
+    const logs = getAccessLogs();
+    const newLog = {
+      id: Date.now(),
+      username,
+      action,
+      details,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent
+    };
+    logs.unshift(newLog);
+    // Keep only last 100 logs
+    if (logs.length > 100) logs.pop();
+    localStorage.setItem('accessLogs', JSON.stringify(logs));
+  } catch (e) {
+    console.error('Failed to save access log:', e);
+  }
 };
 
 const LoginPage = ({ onLogin, error, dark }) => {
@@ -252,12 +290,13 @@ const LoginPage = ({ onLogin, error, dark }) => {
             MASUK
           </button>
         </form>
-
-        <div style={{ marginTop: 20, padding: 12, borderRadius: 12, background: dark ? '#0f172a' : '#f1f5f9' }}>
-          <p style={{ fontSize: 10, fontWeight: 600, color: muted, textAlign: 'center', marginBottom: 8 }}>Pemerintah Kota Ternate 2026</p>
-          <div style={{ display: 'flex', justifyContent: 'center', fontSize: 10 }}>
-            <span style={{ color: '#4f46e5', fontWeight: 700 }}>Created by Dika Haryanto</span>
-          </div>
+        <div style={{ textAlign: 'center', marginTop: 24 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: muted }}>
+            Pemerintah Kota Ternate
+          </p>
+          <p style={{ fontSize: 12, fontWeight: 700, color: muted, marginTop: 4 }}>
+            Created by Dika Haryanto
+          </p>
         </div>
       </div>
     </div>
@@ -484,6 +523,18 @@ const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loginError, setLoginError] = useState('');
+  const [accessLogs, setAccessLogs] = useState([]);
+  
+  // Add employee form state
+  const [newEmployee, setNewEmployee] = useState({
+    Nama: '',
+    NIP: '',
+    Pangkat: '',
+    Jabatan: '',
+    TMT: '',
+    Unit: '',
+    StatusPensiun: 'MD'
+  });
 
   // Data state - must be defined before useEffect that uses setData
   const [data, setData] = useState(() => {
@@ -502,23 +553,150 @@ const App = () => {
     } catch { return {}; }
   });
 
+  // Access log storage
+  const getAccessLogs = () => {
+    try {
+      const logs = localStorage.getItem('accessLogs');
+      return logs ? JSON.parse(logs) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const addAccessLog = (username, action, details = '') => {
+    try {
+      const logs = getAccessLogs();
+      const newLog = {
+        id: Date.now(),
+        username,
+        action,
+        details,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent
+      };
+      logs.unshift(newLog);
+      // Keep only last 100 logs
+      if (logs.length > 100) logs.pop();
+      localStorage.setItem('accessLogs', JSON.stringify(logs));
+    } catch (e) {
+      console.error('Failed to save access log:', e);
+    }
+  };
+
   const handleLogin = (username, password) => {
-    const user = USERS[username];
-    if (user && user.password === password) {
-      setCurrentUser({ username, ...user });
+    // Check for user login (username: user, password: user234)
+    if (username === 'user' && password === 'user234') {
+      setCurrentUser({
+        username,
+        role: 'user',
+        name: 'User Monitoring'
+      });
       setIsLoggedIn(true);
       setLoginError('');
+      // Log the login action
+      addAccessLog(username, 'LOGIN', 'User Monitoring berhasil login');
     } else {
-      setLoginError('Username atau password salah');
+      // For admin/operator login, use hardcoded credentials
+      const user = USERS[username];
+      if (user && user.password === password) {
+        setCurrentUser({ username, ...user });
+        setIsLoggedIn(true);
+        setLoginError('');
+        // Log the login action
+        addAccessLog(username, 'LOGIN', `${user.name} berhasil login`);
+        // Load access logs for superadmin
+        if (user.role === 'superadmin') {
+          setAccessLogs(getAccessLogs());
+        }
+      } else {
+        setLoginError('Username atau password salah');
+        // Log failed login attempt
+        addAccessLog(username, 'LOGIN_FAILED', 'Percobaan login gagal');
+      }
     }
   };
 
   const handleLogout = () => {
+    if (currentUser) {
+      addAccessLog(currentUser.username, 'LOGOUT', `${currentUser.name} logout`);
+    }
     setCurrentUser(null);
     setIsLoggedIn(false);
   };
+  
+  // Add new employee handler
+  const handleAddEmployee = (e) => {
+    e.preventDefault();
+    if (!newEmployee.Nama || !newEmployee.NIP) {
+      alert('Nama dan NIP harus diisi!');
+      return;
+    }
+    
+    const newId = Math.max(...data.map(p => p.id), 0) + 1;
+    const employeeToAdd = {
+      id: newId,
+      ...newEmployee,
+      Status: newEmployee.StatusPensiun === 'MD' || newEmployee.StatusPensiun === 'APS' ? 'Done' : 'Pending'
+    };
+    
+    setData(prev => [...prev, employeeToAdd]);
+    setNewEmployee({
+      Nama: '',
+      NIP: '',
+      Pangkat: '',
+      Jabatan: '',
+      TMT: '',
+      Unit: '',
+      StatusPensiun: 'MD'
+    });
+    alert('Pegawai berhasil ditambahkan!');
+    setTab('monitoring');
+  };
 
-  const isAdmin = currentUser?.role === 'admin';
+  // Delete employee handler
+  const handleDeleteEmployee = (id) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus pegawai ini?')) {
+      setData(prev => prev.filter(p => p.id !== id));
+      alert('Pegawai berhasil dihapus!');
+    }
+  };
+
+  // Export data function
+  const exportData = () => {
+    const headers = ['No', 'NIP', 'Nama', 'Pangkat', 'Jabatan', 'Unit Kerja', 'TMT', 'Status Pensiun', 'Status Monitoring', 'Urgensi'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredData.map(p => [
+        p.id,
+        `"${p.NIP}"`,
+        `"${p.Nama}"`,
+        `"${p.Pangkat}"`,
+        `"${p.Jabatan}"`,
+        `"${p.Unit}"`,
+        p.TMT,
+        p.StatusPensiun || 'BUP',
+        p.Status === 'Done' ? 'Selesai' : 'Pending',
+        p.urgencyLabel
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `sipensi_monitoring_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const isSuperAdmin = currentUser?.role === 'superadmin';
+  const isOperator = currentUser?.role === 'operator';
+  const isUser = currentUser?.role === 'user';
+  const canEdit = isSuperAdmin || isOperator;
+  const canAdd = isSuperAdmin || isOperator;
+  const canDelete = isSuperAdmin || isOperator;
 
   // All useEffect hooks must be called BEFORE any return statement
   useEffect(() => {
@@ -589,7 +767,7 @@ const App = () => {
   const paginatedData = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const toggle = (id) => {
-    if (!isAdmin) return;
+    if (!canEdit) return;
     setData(prev => prev.map(p => p.id===id ? {...p, Status:p.Status==='Done'?'Pending':'Done'} : p));
   };
 
@@ -645,8 +823,8 @@ const App = () => {
             {[
               { id:'dashboard', label:'Statistik Terkini', icon:<I.dash s={15}/> },
               { id:'monitoring', label:'Database Pegawai', icon:<I.users s={15}/> },
-              { id:'tambah-pegawai', label:'Tambah Pegawai', icon:<I.person s={15}/> },
-              { id:'pensiunan-bulan', label:'Pensiunan per Bulan', icon:<I.calendar s={15}/> },
+              ...(canAdd ? [{ id:'tambah', label:'Tambah Pegawai', icon:<I.person s={15}/> }] : []),
+              ...(isSuperAdmin ? [{ id:'logs', label:'Log Akses', icon:<I.shield s={15}/> }] : []),
             ].map(nav => (
               <button key={nav.id} onClick={()=>setTab(nav.id)} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 12px', borderRadius:9, border:'none', cursor:'pointer', fontWeight:700, fontSize:12, textAlign:'left', background:tab===nav.id?'#4f46e5':'transparent', color:tab===nav.id?'#fff':muted, transition:'all 0.15s' }}>
                 {nav.icon}{nav.label}
@@ -673,11 +851,36 @@ const App = () => {
               </div>
             ))}
           </div>
+          {/* Status summary */}
+          <div style={{ padding:'0 10px 10px', marginTop:8 }}>
+            <p style={{ fontSize:9, fontWeight:700, color:muted, textTransform:'uppercase', letterSpacing:'0.1em', padding:'0 4px', marginBottom:6 }}>Ringkasan Status</p>
+            <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 8px', borderRadius:7, marginBottom:2, background: dark?'#1e3a5f':'#eef2ff' }}>
+              <div style={{ width:8, height:8, borderRadius:99, background:'#2563eb', flexShrink:0 }}/>
+              <span style={{ fontSize:11, fontWeight:700, color:'#2563eb' }}>BUP</span>
+              <span style={{ marginLeft:'auto', fontSize:10, background: dark?'#334155':'#f1f5f9', color:muted, padding:'1px 5px', borderRadius:4, fontWeight:700 }}>
+                {processed.filter(d=>(d.StatusPensiun||'BUP')==='BUP').length}
+              </span>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 8px', borderRadius:7, marginBottom:2, background: dark?'#1e3a5f':'#fef2f2' }}>
+              <div style={{ width:8, height:8, borderRadius:99, background:'#dc2626', flexShrink:0 }}/>
+              <span style={{ fontSize:11, fontWeight:700, color:'#dc2626' }}>MD</span>
+              <span style={{ marginLeft:'auto', fontSize:10, background: dark?'#334155':'#f1f5f9', color:muted, padding:'1px 5px', borderRadius:4, fontWeight:700 }}>
+                {processed.filter(d=>(d.StatusPensiun||'BUP')==='MD').length}
+              </span>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 8px', borderRadius:7, marginBottom:2, background: dark?'#1e3a5f':'#fffbeb' }}>
+              <div style={{ width:8, height:8, borderRadius:99, background:'#d97706', flexShrink:0 }}/>
+              <span style={{ fontSize:11, fontWeight:700, color:'#d97706' }}>APS</span>
+              <span style={{ marginLeft:'auto', fontSize:10, background: dark?'#334155':'#f1f5f9', color:muted, padding:'1px 5px', borderRadius:4, fontWeight:700 }}>
+                {processed.filter(d=>(d.StatusPensiun||'BUP')==='APS').length}
+              </span>
+            </div>
+          </div>
           {/* Bottom info */}
           <div style={{ marginTop:'auto', padding:'12px 10px' }}>
-            <div style={{ background:'linear-gradient(135deg,#4f46e5,#7c3aed)', borderRadius:12, padding:'12px', color:'#fff' }}>
+            <div style={{ background: isSuperAdmin ? 'linear-gradient(135deg,#dc2626,#e11d48)' : isOperator ? 'linear-gradient(135deg,#d97706,#ea580c)' : 'linear-gradient(135deg,#10b981,#059669)', borderRadius:12, padding:'12px', color:'#fff' }}>
               <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-                {isAdmin ? <I.shield s={13}/> : <I.users s={13}/>}<span style={{ fontSize:10, fontWeight:900, textTransform:'uppercase', letterSpacing:'0.05em' }}>{isAdmin ? 'Administrator' : 'Petugas Monitoring'}</span>
+                {isSuperAdmin ? <I.shield s={13}/> : isOperator ? <I.users s={13}/> : <I.lock s={13}/>}<span style={{ fontSize:10, fontWeight:900, textTransform:'uppercase', letterSpacing:'0.05em' }}>{isSuperAdmin ? 'Super Admin' : isOperator ? 'Operator' : 'User (View Only)'}</span>
               </div>
               <div style={{ fontSize:10, opacity:0.85, lineHeight:1.5, fontWeight:600 }}>
               {currentUser?.name}<br/>{total} Pegawai
@@ -705,12 +908,12 @@ const App = () => {
             <p style={{ fontSize:10, color:muted, fontWeight:600, margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>Monitoring Data · Kota Ternate</p>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 8px', borderRadius:8, border:`1px solid ${border}`, background:'transparent' }}>
-            <div style={{ width:24, height:24, borderRadius:99, background: isAdmin ? '#4f46e5' : '#10b981', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              {isAdmin ? <I.shield s={12} st={{ color:'#fff' }}/> : <I.users s={12} st={{ color:'#fff' }}/>}
+            <div style={{ width:24, height:24, borderRadius:99, background: isSuperAdmin ? '#dc2626' : isOperator ? '#d97706' : '#10b981', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              {isSuperAdmin ? <I.shield s={12} st={{ color:'#fff' }}/> : isOperator ? <I.users s={12} st={{ color:'#fff' }}/> : <I.lock s={12} st={{ color:'#fff' }}/>}
             </div>
             <div style={{ textAlign:'left' }}>
               <p style={{ fontSize:10, fontWeight:700, color:text, margin:0 }}>{currentUser?.name}</p>
-              <p style={{ fontSize:8, fontWeight:600, color: isAdmin ? '#818cf8' : '#34d399', margin:0 }}>{isAdmin ? 'Admin' : 'Petugas'}</p>
+              <p style={{ fontSize:8, fontWeight:600, color: isSuperAdmin ? '#f87171' : isOperator ? '#fbbf24' : '#34d399', margin:0 }}>{isSuperAdmin ? 'Super Admin' : isOperator ? 'Operator' : 'User'}</p>
             </div>
           </div>
           <button onClick={handleLogout} style={{ padding:7, borderRadius:8, border:`1px solid ${border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', color:'#94a3b8' }}>
@@ -1004,10 +1207,10 @@ const App = () => {
                           <td style={{ padding:'8px 12px', textAlign:'center' }}>
                             <span style={{
                               padding:'3px 8px', borderRadius:99, fontSize:10, fontWeight:800,
-                              background: '#eff6ff',
-                              color: '#2563eb'
+                              background: p.StatusPensiun === 'MD' ? '#fef2f2' : p.StatusPensiun === 'APS' ? '#fffbeb' : '#eff6ff',
+                              color: p.StatusPensiun === 'MD' ? '#dc2626' : p.StatusPensiun === 'APS' ? '#d97706' : '#2563eb'
                             }}>
-                              Batas Usia Pensiun
+                              {p.StatusPensiun === 'MD' ? 'Meninggal Dunia' : p.StatusPensiun === 'APS' ? 'Pensiun Dini' : 'Batas Usia Pensiun'}
                             </span>
                           </td>
 
@@ -1054,10 +1257,21 @@ const App = () => {
                           </td>
 
                           <td style={{ padding:'8px 12px', textAlign:'center' }}>
-                            <button onClick={()=>toggle(p.id)} title={p.Status==='Done'?'Tandai Pending':'Tandai Selesai'}
-                              style={{ padding:6, borderRadius:8, border:'none', cursor: isAdmin ? 'pointer' : 'not-allowed', background:p.Status==='Done'?'#16a34a':'transparent', color:p.Status==='Done'?'#fff':muted, display:'flex', alignItems:'center', boxShadow:p.Status==='Done'?'0 2px 8px rgba(22,163,74,0.3)':'none', borderWidth:1, borderStyle:'solid', borderColor:p.Status==='Done'?'#16a34a':border, opacity: isAdmin ? 1 : 0.5 }}>
-                              <I.clip s={15}/>
-                            </button>
+                            <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
+                              <button onClick={()=>toggle(p.id)} title={p.Status==='Done'?'Tandai Pending':'Tandai Selesai'}
+                                style={{ padding:6, borderRadius:8, border:'none', cursor: canEdit ? 'pointer' : 'not-allowed', background:p.Status==='Done'?'#16a34a':'transparent', color:p.Status==='Done'?'#fff':muted, display:'flex', alignItems:'center', boxShadow:p.Status==='Done'?'0 2px 8px rgba(22,163,74,0.3)':'none', borderWidth:1, borderStyle:'solid', borderColor:p.Status==='Done'?'#16a34a':border, opacity: canEdit ? 1 : 0.5 }}>
+                                <I.clip s={15}/>
+                              </button>
+                              <button onClick={() => {
+                                if (canEdit && window.confirm(`Apakah Anda yakin ingin menghapus pegawai ${p.Nama}?`)) {
+                                  setData(data.filter(d => d.id !== p.id));
+                                  alert('Pegawai berhasil dihapus!');
+                                }
+                              }} title="Hapus Pegawai"
+                                style={{ padding:6, borderRadius:8, border:'none', cursor: canEdit ? 'pointer' : 'not-allowed', background:'#dc2626', color:'#fff', display:'flex', alignItems:'center', boxShadow:'0 2px 8px rgba(220,38,38,0.3)', opacity: canEdit ? 1 : 0.5 }}>
+                                <I.xmark s={15}/>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1100,7 +1314,7 @@ const App = () => {
           )}
 
           {/* ══ TAMBAH PEGAWAI TAB ══ */}
-          {tab==='tambah-pegawai' && (
+          {tab==='tambah' && canAdd && (
             <div>
               <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:'16px 18px', marginBottom:16 }}>
                 <h2 style={{ fontSize:16, fontWeight:800, margin:'0 0 8px', color:text }}>
@@ -1116,62 +1330,77 @@ const App = () => {
 
               {/* Form Tambah Pegawai */}
               <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:'20px 24px' }}>
-                <form onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.target);
-                  const newPegawai = {
-                    id: Math.max(...data.map(d => d.id)) + 1,
-                    Nama: formData.get('nama'),
-                    NIP: formData.get('nip'),
-                    Pangkat: formData.get('pangkat'),
-                    Jabatan: formData.get('jabatan'),
-                    TMT: formData.get('tmt'),
-                    Unit: formData.get('unit'),
-                    Operator: formData.get('operator'),
-                    StatusPensiun: formData.get('statusPensiun'),
-                    Status: 'Pending',
-                    urgency: 'menunggu',
-                    urgencyLabel: 'Menunggu',
-                    keterangan: 'Data baru ditambahkan'
-                  };
-                  setData([...data, newPegawai]);
-                  alert(`Pegawai ${newPegawai.Nama} berhasil ditambahkan dengan status ${newPegawai.StatusPensiun}!`);
-                  e.target.reset();
-                }}>
+                <form onSubmit={handleAddEmployee}>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(250px, 1fr))', gap:16 }}>
                     <div>
                       <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Nama Lengkap *</label>
-                      <input name="nama" type="text" required style={{ ...selStyle, width:'100%' }} placeholder="Masukkan nama lengkap" />
+                      <input
+                        type="text"
+                        required
+                        value={newEmployee.Nama}
+                        onChange={(e) => setNewEmployee({...newEmployee, Nama: e.target.value})}
+                        style={{ ...selStyle, width:'100%' }}
+                        placeholder="Masukkan nama lengkap"
+                      />
                     </div>
                     <div>
-                      <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>NIP</label>
-                      <input name="nip" type="text" style={{ ...selStyle, width:'100%' }} placeholder="Masukkan NIP" />
+                      <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>NIP *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newEmployee.NIP}
+                        onChange={(e) => setNewEmployee({...newEmployee, NIP: e.target.value})}
+                        style={{ ...selStyle, width:'100%' }}
+                        placeholder="Masukkan NIP"
+                      />
                     </div>
                     <div>
                       <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Pangkat</label>
-                      <input name="pangkat" type="text" style={{ ...selStyle, width:'100%' }} placeholder="Masukkan pangkat" />
+                      <input
+                        type="text"
+                        value={newEmployee.Pangkat}
+                        onChange={(e) => setNewEmployee({...newEmployee, Pangkat: e.target.value})}
+                        style={{ ...selStyle, width:'100%' }}
+                        placeholder="Masukkan pangkat"
+                      />
                     </div>
                     <div>
                       <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Jabatan</label>
-                      <input name="jabatan" type="text" style={{ ...selStyle, width:'100%' }} placeholder="Masukkan jabatan" />
+                      <input
+                        type="text"
+                        value={newEmployee.Jabatan}
+                        onChange={(e) => setNewEmployee({...newEmployee, Jabatan: e.target.value})}
+                        style={{ ...selStyle, width:'100%' }}
+                        placeholder="Masukkan jabatan"
+                      />
                     </div>
                     <div>
                       <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Unit Kerja</label>
-                      <input name="unit" type="text" style={{ ...selStyle, width:'100%' }} placeholder="Masukkan unit kerja" />
+                      <input
+                        type="text"
+                        value={newEmployee.Unit}
+                        onChange={(e) => setNewEmployee({...newEmployee, Unit: e.target.value})}
+                        style={{ ...selStyle, width:'100%' }}
+                        placeholder="Masukkan unit kerja"
+                      />
                     </div>
                     <div>
                       <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>TMT</label>
-                      <input name="tmt" type="date" style={{ ...selStyle, width:'100%' }} />
-                    </div>
-                    <div>
-                      <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Operator</label>
-                      <select name="operator" style={{ ...selStyle, width:'100%' }}>
-                        {OPERATORS.map(op => <option key={op} value={op}>{op}</option>)}
-                      </select>
+                      <input
+                        type="date"
+                        value={newEmployee.TMT}
+                        onChange={(e) => setNewEmployee({...newEmployee, TMT: e.target.value})}
+                        style={{ ...selStyle, width:'100%' }}
+                      />
                     </div>
                     <div>
                       <label style={{ display:'block', fontSize:11, fontWeight:700, color:muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Status Pensiun *</label>
-                      <select name="statusPensiun" required style={{ ...selStyle, width:'100%' }}>
+                      <select
+                        required
+                        value={newEmployee.StatusPensiun}
+                        onChange={(e) => setNewEmployee({...newEmployee, StatusPensiun: e.target.value})}
+                        style={{ ...selStyle, width:'100%' }}
+                      >
                         <option value="MD">MD (Meninggal Dunia)</option>
                         <option value="APS">APS (Pensiun Dini)</option>
                         <option value="BUP">BUP (Batas Usia Pensiun)</option>
@@ -1182,8 +1411,16 @@ const App = () => {
                     <button type="submit" style={{ padding:'10px 24px', borderRadius:8, border:'none', background:'#4f46e5', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
                       <I.check2 s={14}/> Simpan Pegawai
                     </button>
-                    <button type="reset" style={{ padding:'10px 24px', borderRadius:8, border:`1px solid ${border}`, background:'transparent', color:muted, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                      Reset Form
+                    <button type="button" onClick={() => setTab('monitoring')} style={{ padding:'10px 24px', borderRadius:8, border:`1px solid ${border}`, background:'transparent', color:muted, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                      Batal
+                    </button>
+                    <button type="button" onClick={() => {
+                      const lastEmployee = data[data.length - 1];
+                      if (lastEmployee) {
+                        handleDeleteEmployee(lastEmployee.id);
+                      }
+                    }} style={{ padding:'10px 24px', borderRadius:8, border:'none', background:'#dc2626', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
+                      <I.xmark s={14}/> Hapus Pegawai Terakhir
                     </button>
                   </div>
                 </form>
@@ -1375,6 +1612,73 @@ const App = () => {
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ══ LOG AKSES TAB (SUPERADMIN ONLY) ══ */}
+          {tab==='logs' && isSuperAdmin && (
+            <div>
+              <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:'16px 18px', marginBottom:16 }}>
+                <h2 style={{ fontSize:16, fontWeight:800, margin:'0 0 8px', color:text }}>
+                  <span style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <I.shield s={20} st={{ color:'#dc2626' }}/>
+                    Log Akses Pengguna
+                  </span>
+                </h2>
+                <p style={{ fontSize:12, color:muted, margin:0 }}>
+                  Riwayat akses seluruh pengguna sistem
+                </p>
+              </div>
+
+              {/* Access Logs Table */}
+              <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, overflow:'hidden' }}>
+                <div style={{ overflowX:'auto' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                    <thead style={{ background:dark?'#0f172a':'#f8fafc' }}>
+                      <tr>
+                        {['No','Username','Aksi','Detail','Waktu'].map((h,i)=>(
+                          <th key={i} style={{ padding:'10px 12px', fontWeight:700, color:muted, textAlign:i===0?'center':'left', fontSize:10, textTransform:'uppercase', letterSpacing:'0.05em', borderBottom:`1px solid ${border}` }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {accessLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} style={{ padding:'32px', textAlign:'center', color:muted, fontWeight:600 }}>
+                            Belum ada log akses
+                          </td>
+                        </tr>
+                      ) : (
+                        accessLogs.map((log, idx) => (
+                          <tr key={log.id} style={{ borderBottom:`1px solid ${border}` }}>
+                            <td style={{ padding:'8px 12px', textAlign:'center', fontWeight:700, color:muted }}>{idx + 1}</td>
+                            <td style={{ padding:'8px 12px' }}>
+                              <span style={{ fontFamily:'monospace', fontSize:11, fontWeight:600, color:'#4f46e5', background:'#eef2ff', padding:'2px 6px', borderRadius:4 }}>
+                                {log.username}
+                              </span>
+                            </td>
+                            <td style={{ padding:'8px 12px' }}>
+                              <span style={{
+                                padding:'3px 8px', borderRadius:99, fontSize:10, fontWeight:800,
+                                background: log.action === 'LOGIN' ? '#f0fdf4' : log.action === 'LOGOUT' ? '#fffbeb' : '#fef2f2',
+                                color: log.action === 'LOGIN' ? '#16a34a' : log.action === 'LOGOUT' ? '#d97706' : '#dc2626'
+                              }}>
+                                {log.action}
+                              </span>
+                            </td>
+                            <td style={{ padding:'8px 12px', fontSize:11, color:text }}>
+                              {log.details}
+                            </td>
+                            <td style={{ padding:'8px 12px', fontSize:10, color:muted, fontFamily:'monospace' }}>
+                              {new Date(log.timestamp).toLocaleString('id-ID')}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
         </div>
